@@ -3,12 +3,13 @@
 // Firebase Console → Project settings → أسفل الصفحة "Your apps" → Config
 // ============================================================
 export const firebaseConfig = {
-  apiKey: "AIzaSyD3I1FG96uLMHTGANQgdUe4RFdsFPbk4u8",
-  authDomain: "factory-leaderboard-e5cee.firebaseapp.com",
-  projectId: "factory-leaderboard-e5cee",
-  storageBucket: "factory-leaderboard-e5cee.firebasestorage.app",
-  messagingSenderId: "1068433444487",
-  appId: "1:1068433444487:web:9056410354baf32cb87222"
+  apiKey: "AIzaSyAECGILb3WzxpQDfwe3KvKqzw6pBKa2lZo",
+  authDomain:  "scoreboard-421a9.firebaseapp.com",
+  projectId: "scoreboard-421a9",
+  storageBucket: "scoreboard-421a9.firebasestorage.app",
+  messagingSenderId: "307064133825",
+  appId: "1:307064133825:web:9dfa1db2308eee1f821c40",
+  
 };
 
 // المفتاح السري لصفحة الأدمين — بدّلو بشي حاجة خاصة بيك
