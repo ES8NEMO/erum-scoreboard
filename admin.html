@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>لوحة التحكم — الأدمين</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body class="mode-admin">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <span class="eyebrow">ADMIN CONTROL</span>
+        <h1>لوحة التحكم</h1>
+      </div>
+      <div class="status">
+        <span id="updated">—</span>
+        <span class="live-dot"></span>
+      </div>
+    </div>
+
+    <div id="gate" class="gate" style="display:none;">
+      <span class="big">🔒 ما عندكش الصلاحية</span>
+      <p>هاد الرابط خاصو مفتاح الأدمين فالآخر ديالو (?key=...).<br>سولاليك للمطور الأصلي.</p>
+    </div>
+
+    <div id="app" style="display:none;">
+
+      <div id="saveBar" class="save-bar">
+        <span id="saveStatus" class="save-status saved">✅ محفوظ — المشاهدين شايفين هاد النقط</span>
+        <button id="saveBtn" class="btn accent-solid" disabled>💾 حفظ وإرسال للمشاهدين</button>
+      </div>
+
+      <div id="list" class="admin-list"></div>
+
+      <div class="add-panel">
+        <input type="text" id="newTeamName" placeholder="سمية الفريق الجديد..." />
+        <button class="btn accent-solid" id="addTeamBtn">➕ زيد فريق</button>
+      </div>
+
+      <div class="footer-note">اللائحة ثابتة بلا ترتيب أوتوماتيكي — الفريق ما كيتحركش ملي تزيد ليه نقط</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { firebaseConfig, DOC_PATH, ADMIN_KEY } from "./firebase-config.js";
+
+    // --- gate check ---
+    const params = new URLSearchParams(window.location.search);
+    const providedKey = params.get("key");
+    if (providedKey !== ADMIN_KEY) {
+      document.getElementById("gate").style.display = "block";
+      throw new Error("Unauthorized: missing or wrong admin key");
+    }
+    document.getElementById("app").style.display = "block";
+
+    const app = initializeApp(firebaseConfig);
+    // Offline persistence: writes resolve instantly from local cache, then
+    // sync to the server quietly whenever the connection allows — no more
+    // waiting on a slow / spotty network to feel the save happen.
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+    });
+    const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
+
+    const listEl = document.getElementById("list");
+    const updatedEl = document.getElementById("updated");
+    const newTeamName = document.getElementById("newTeamName");
+    const addTeamBtn = document.getElementById("addTeamBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const saveStatus = document.getElementById("saveStatus");
+
+    let workingTeams = [];   // local draft — what the admin is editing (order = display order, never re-sorted)
+    let latestHistory = [];  // last known history array from the server
+    let dirty = false;       // true = unsaved local changes exist
+    const rowRefs = new Map(); // team.id -> { scoreValEl }
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10);
+    }
+
+    function setDirty(state) {
+      dirty = state;
+      saveBtn.disabled = !state;
+      if (state) {
+        saveStatus.textContent = "⚠️ عندك تبديلات ماشي محفوظة";
+        saveStatus.className = "save-status unsaved";
+      } else {
+        saveStatus.textContent = "✅ محفوظ — المشاهدين شايفين هاد النقط";
+        saveStatus.className = "save-status saved";
+      }
+    }
+
+    // Full rebuild — only called when teams are added/removed, or on first load.
+    // Order is NOT sorted by score, so cards stay put while tapping +/-.
+    function renderAll(teams) {
+      rowRefs.clear();
+
+      if (teams.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><span class="big">زيد أول فريق</span>استعمل الفورم لتحت باش تبدا</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      teams.forEach((team, i) => {
+        const card = document.createElement("div");
+        card.className = "admin-card";
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "del-btn";
+        delBtn.textContent = "🗑";
+        delBtn.title = "حذف الفريق";
+        delBtn.addEventListener("click", () => {
+          if (confirm(`متأكد بغيتي تحيد "${team.name}"؟`)) removeTeam(team.id);
+        });
+
+        const head = document.createElement("div");
+        head.className = "card-head";
+        const rankTag = document.createElement("span");
+        rankTag.className = "admin-rank";
+        rankTag.textContent = i + 1;
+        const nameInput = document.createElement("input");
+        nameInput.className = "name-edit";
+        nameInput.type = "text";
+        nameInput.value = team.name;
+        nameInput.addEventListener("change", () => {
+          patchTeamName(team.id, nameInput.value.trim() || team.name);
+        });
+        head.appendChild(rankTag);
+        head.appendChild(nameInput);
+
+        const scoreDisplay = document.createElement("div");
+        scoreDisplay.className = "score-display";
+        const scoreVal = document.createElement("span");
+        scoreVal.className = "score-value";
+        scoreVal.textContent = team.score;
+        scoreDisplay.appendChild(scoreVal);
+
+        const btnGrid = document.createElement("div");
+        btnGrid.className = "btn-grid";
+        const mkBtn = (label, delta, cls) => {
+          const b = document.createElement("button");
+          b.className = "btn " + cls;
+          b.textContent = label;
+          b.addEventListener("click", () => patchTeamScore(team.id, delta));
+          return b;
+        };
+        [["−10", -10, "minus"], ["−5", -5, "minus"], ["−1", -1, "minus"],
+         ["+1", 1, "plus"], ["+5", 5, "plus"], ["+10", 10, "plus"]]
+          .forEach(([label, delta, cls]) => btnGrid.appendChild(mkBtn(label, delta, cls)));
+
+        card.appendChild(delBtn);
+        card.appendChild(head);
+        card.appendChild(scoreDisplay);
+        card.appendChild(btnGrid);
+        listEl.appendChild(card);
+
+        rowRefs.set(team.id, { scoreValEl: scoreVal });
+      });
+    }
+
+    // Fast path: score change only touches the one number on screen, no rebuild, no jump.
+    function patchTeamScore(id, delta) {
+      workingTeams = workingTeams.map(t => t.id === id ? { ...t, score: t.score + delta } : t);
+      setDirty(true);
+      const team = workingTeams.find(t => t.id === id);
+      const refEls = rowRefs.get(id);
+      if (refEls) refEls.scoreValEl.textContent = team.score;
+    }
+
+    function patchTeamName(id, name) {
+      workingTeams = workingTeams.map(t => t.id === id ? { ...t, name } : t);
+      setDirty(true);
+      // name edits don't need a full rebuild, the input already shows the typed value
+    }
+
+    function removeTeam(id) {
+      workingTeams = workingTeams.filter(t => t.id !== id);
+      setDirty(true);
+      renderAll(workingTeams);
+    }
+
+    addTeamBtn.addEventListener("click", () => {
+      const name = newTeamName.value.trim();
+      if (!name) return;
+      workingTeams = [...workingTeams, { id: uid(), name, score: 0 }];
+      setDirty(true);
+      renderAll(workingTeams);
+      newTeamName.value = "";
+    });
+    newTeamName.addEventListener("keydown", (e) => { if (e.key === "Enter") addTeamBtn.click(); });
+
+    saveBtn.addEventListener("click", () => {
+      const historyPoint = {
+        t: Date.now(),
+        scores: Object.fromEntries(workingTeams.map(t => [t.id, t.score]))
+      };
+      const newHistory = [...latestHistory, historyPoint].slice(-60); // keep last 60 points
+      const payload = { teams: workingTeams, history: newHistory, updatedAt: serverTimestamp() };
+
+      // Optimistic: the local cache queues this write instantly, so we don't
+      // make the admin wait on the network — it syncs to the server quietly
+      // in the background even on a slow / flaky connection.
+      setDirty(false);
+      saveStatus.textContent = "🔄 كيتسجل محليا وكيتزامن...";
+      saveStatus.className = "save-status unsaved";
+
+      setDoc(ref, payload)
+        .then(() => {
+          if (!dirty) {
+            saveStatus.textContent = "✅ محفوظ — المشاهدين شايفين هاد النقط";
+            saveStatus.className = "save-status saved";
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          alert("خطأ فالحفظ، عاود جرب");
+          setDirty(true);
+        });
+    });
+
+    onSnapshot(ref, (snap) => {
+      const data = snap.exists() ? snap.data() : { teams: [], history: [] };
+      latestHistory = data.history || [];
+      if (!dirty) {
+        workingTeams = data.teams || [];
+        renderAll(workingTeams);
+      }
+      if (data.updatedAt) {
+        const t = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+        updatedEl.textContent = "آخر حفظ: " + t.toLocaleTimeString("ar-MA", { hour: "2-digit", minute: "2-digit" });
+      }
+    }, (err) => {
+      updatedEl.textContent = "خطأ فالاتصال";
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
