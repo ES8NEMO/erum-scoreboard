@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>لوحة التحفيز — الترتيب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <span class="eyebrow">SHIFT SCOREBOARD</span>
+        <h1>لوحة التحفيز</h1>
+      </div>
+      <div class="status">
+        <span id="updated">— جاري التحميل —</span>
+        <span class="live-dot"></span>
+      </div>
+    </div>
+
+    <div id="podium" class="podium"></div>
+    <div id="list" class="list"></div>
+
+    <div class="chart-panel">
+      <div class="chart-head">
+        <span class="eyebrow">TEAM TREND</span>
+        <h2>تطور النقط عبر الوقت</h2>
+      </div>
+      <div id="chartEmpty" class="empty-state" style="display:none;">
+        <span class="big">مازال ماكاينش تاريخ</span>
+        غادي يبدا يبان المنحنى من أول مرة الأدمين يحفظ تبديل
+      </div>
+      <div id="chartBlock" style="display:none;">
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+        <div class="chart-time-range">
+          <span id="timeStart"></span>
+          <span id="timeEnd"></span>
+        </div>
+        <div id="chartLegend" class="chart-legend"></div>
+      </div>
+    </div>
+
+    <div class="footer-note">كيتحدث بشكل مباشر — بلا ما خاصك دير refresh</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { firebaseConfig, DOC_PATH } from "./firebase-config.js";
+
+    const app = initializeApp(firebaseConfig);
+    // cache last-seen data locally so re-opening the page is instant even on weak signal
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+    });
+    const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
+
+    const podiumEl = document.getElementById("podium");
+    const listEl = document.getElementById("list");
+    const updatedEl = document.getElementById("updated");
+    const chartEmptyEl = document.getElementById("chartEmpty");
+    const chartBlockEl = document.getElementById("chartBlock");
+    const chartLegendEl = document.getElementById("chartLegend");
+    const timeStartEl = document.getElementById("timeStart");
+    const timeEndEl = document.getElementById("timeEnd");
+    const canvas = document.getElementById("trendChart");
+
+    let prevScores = {}; // id -> previous score, for flip animation
+    let lastTeams = [];
+    let lastHistory = [];
+
+    const PALETTE = ["#F5B700", "#3FA66B", "#5B8EF2", "#E1481C", "#B57BE0", "#3AC1C4", "#E0577A", "#C9C24A"];
+    function colorForId(id) {
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+      return PALETTE[h % PALETTE.length];
+    }
+
+    function makeFlapScore(score) {
+      const str = String(Math.max(0, Math.round(score))).padStart(2, "0");
+      const container = document.createElement("span");
+      container.className = "flap-score";
+      [...str].forEach((ch) => {
+        const d = document.createElement("span");
+        d.className = "digit";
+        d.textContent = ch;
+        container.appendChild(d);
+      });
+      return container;
+    }
+
+    function flipIfChanged(el, teamId, score) {
+      const prev = prevScores[teamId];
+      if (prev !== undefined && prev !== score) {
+        el.querySelectorAll(".digit").forEach((d, i) => {
+          setTimeout(() => d.classList.add("flip"), i * 40);
+          d.addEventListener("animationend", () => d.classList.remove("flip"), { once: true });
+        });
+      }
+    }
+
+    // ---------- lightweight hand-drawn line chart (no external library) ----------
+    function drawChart() {
+      const teams = lastTeams;
+      const history = lastHistory;
+
+      if (!history || history.length < 2 || teams.length === 0) {
+        chartEmptyEl.style.display = "block";
+        chartBlockEl.style.display = "none";
+        return;
+      }
+      chartEmptyEl.style.display = "none";
+      chartBlockEl.style.display = "block";
+
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = canvas.clientWidth;
+      const cssH = canvas.clientHeight;
+      canvas.width = cssW * dpr;
+      canvas.height = cssH * dpr;
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, cssW, cssH);
+
+      const pad = { top: 10, right: 8, bottom: 8, left: 30 };
+      const plotW = cssW - pad.left - pad.right;
+      const plotH = cssH - pad.top - pad.bottom;
+
+      const allScores = history.flatMap(h => Object.values(h.scores || {}));
+      let maxY = Math.max(...allScores, 1);
+      let minY = Math.min(0, ...allScores);
+      if (maxY === minY) maxY = minY + 1;
+
+      const xAt = (i) => pad.left + (history.length === 1 ? 0 : (i / (history.length - 1)) * plotW);
+      const yAt = (v) => pad.top + plotH - ((v - minY) / (maxY - minY)) * plotH;
+
+      // grid lines + y labels
+      ctx.strokeStyle = "#26292D";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#9AA0A6";
+      ctx.font = "10px 'IBM Plex Mono', monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      const steps = 4;
+      for (let s = 0; s <= steps; s++) {
+        const v = minY + ((maxY - minY) * s) / steps;
+        const y = yAt(v);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(cssW - pad.right, y);
+        ctx.stroke();
+        ctx.fillText(Math.round(v), pad.left - 6, y);
+      }
+
+      // lines per team
+      teams.forEach((team) => {
+        const color = colorForId(team.id);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        let started = false;
+        history.forEach((h, i) => {
+          const v = h.scores ? h.scores[team.id] : undefined;
+          if (v === undefined || v === null) { started = false; return; }
+          const x = xAt(i), y = yAt(v);
+          if (!started) { ctx.moveTo(x, y); started = true; }
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // last point dot
+        for (let i = history.length - 1; i >= 0; i--) {
+          const v = history[i].scores ? history[i].scores[team.id] : undefined;
+          if (v !== undefined && v !== null) {
+            ctx.beginPath();
+            ctx.arc(xAt(i), yAt(v), 3, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            break;
+          }
+        }
+      });
+
+      // time range labels (LTR, safe plain text)
+      timeStartEl.textContent = new Date(history[0].t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      timeEndEl.textContent = new Date(history[history.length - 1].t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+      // legend (HTML, so Arabic team names render crisply)
+      chartLegendEl.innerHTML = "";
+      teams.forEach((team) => {
+        const item = document.createElement("span");
+        item.className = "legend-item";
+        const dot = document.createElement("span");
+        dot.className = "legend-dot";
+        dot.style.background = colorForId(team.id);
+        const label = document.createElement("span");
+        label.textContent = team.name;
+        item.appendChild(dot);
+        item.appendChild(label);
+        chartLegendEl.appendChild(item);
+      });
+    }
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(drawChart, 150);
+    });
+
+    function render(data) {
+      const teams = (data && data.teams) ? [...data.teams] : [];
+      teams.sort((a, b) => b.score - a.score);
+
+      if (data && data.updatedAt) {
+        const t = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+        updatedEl.textContent = "آخر تحديث: " + t.toLocaleTimeString("ar-MA", { hour: "2-digit", minute: "2-digit" });
+      } else {
+        updatedEl.textContent = "آخر تحديث: —";
+      }
+
+      lastTeams = teams;
+      lastHistory = (data && data.history) ? data.history : [];
+
+      if (teams.length === 0) {
+        podiumEl.innerHTML = "";
+        listEl.innerHTML = `<div class="empty-state"><span class="big">ماكاينش فرق بعد</span>الأدمين خاصو يزيد الفرق من لوحة التحكم</div>`;
+        drawChart();
+        return;
+      }
+
+      const top3 = teams.slice(0, 3);
+      const order = [1, 0, 2]; // display order: 2nd, 1st, 3rd
+      podiumEl.innerHTML = "";
+      order.forEach((idx) => {
+        const team = top3[idx];
+        const card = document.createElement("div");
+        if (!team) { card.style.visibility = "hidden"; podiumEl.appendChild(card); return; }
+        card.className = "podium-card rank-" + (idx + 1);
+        const rankLabel = document.createElement("div");
+        rankLabel.className = "podium-rank";
+        rankLabel.textContent = idx === 0 ? "🏆 المركز 1" : "المركز " + (idx + 1);
+        const nameEl = document.createElement("div");
+        nameEl.className = "podium-name";
+        nameEl.textContent = team.name;
+        const scoreEl = makeFlapScore(team.score);
+        flipIfChanged(scoreEl, team.id, team.score);
+        card.appendChild(rankLabel);
+        card.appendChild(nameEl);
+        card.appendChild(scoreEl);
+        podiumEl.appendChild(card);
+      });
+
+      const maxScore = Math.max(...teams.map(t => t.score), 1);
+      listEl.innerHTML = "";
+      teams.forEach((team, i) => {
+        const row = document.createElement("div");
+        row.className = "row" + (i < 3 ? " top" : "");
+        const rankNum = document.createElement("div");
+        rankNum.className = "rank-num";
+        rankNum.textContent = i + 1;
+        const nameBlock = document.createElement("div");
+        nameBlock.className = "name-block";
+        const nameEl = document.createElement("div");
+        nameEl.className = "team-name";
+        nameEl.textContent = team.name;
+        const barTrack = document.createElement("div");
+        barTrack.className = "bar-track";
+        const barFill = document.createElement("div");
+        barFill.className = "bar-fill";
+        barFill.style.width = Math.max(4, (team.score / maxScore) * 100) + "%";
+        barTrack.appendChild(barFill);
+        nameBlock.appendChild(nameEl);
+        nameBlock.appendChild(barTrack);
+        const scoreEl = makeFlapScore(team.score);
+        flipIfChanged(scoreEl, team.id, team.score);
+        row.appendChild(rankNum);
+        row.appendChild(nameBlock);
+        row.appendChild(scoreEl);
+        listEl.appendChild(row);
+      });
+
+      prevScores = Object.fromEntries(teams.map(t => [t.id, t.score]));
+      drawChart();
+    }
+
+    onSnapshot(ref, (snap) => {
+      render(snap.exists() ? snap.data() : { teams: [], history: [] });
+    }, (err) => {
+      updatedEl.textContent = "خطأ فالاتصال";
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
