@@ -1,47 +1,63 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="fr" dir="ltr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-<title>لوحة التحكم — الأدمين</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+<title>Admin — Tableau des Médailles</title>
 <link rel="stylesheet" href="style.css" />
 </head>
-<body class="mode-admin">
+<body>
   <div class="wrap">
     <div class="topbar">
-      <div class="brand">
-        <span class="eyebrow">ADMIN CONTROL</span>
-        <h1>لوحة التحكم</h1>
-      </div>
-      <div class="status">
-        <span id="updated">—</span>
-        <span class="live-dot"></span>
+      <span class="status-line"><span class="live-dot"></span><span id="updated">—</span></span>
+      <div class="lang-switch">
+        <button class="gear-btn" id="gearBtn" title="Language">⚙️</button>
+        <div class="lang-menu" id="langMenu">
+          <button data-lang="fr">🇫🇷 Français</button>
+          <button data-lang="en">🇬🇧 English</button>
+          <button data-lang="es">🇪🇸 Español</button>
+        </div>
       </div>
     </div>
 
     <div id="gate" class="gate" style="display:none;">
-      <span class="big">🔒 ما عندكش الصلاحية</span>
-      <p>هاد الرابط خاصو مفتاح الأدمين فالآخر ديالو (?key=...).<br>سولاليك للمطور الأصلي.</p>
+      <span class="big">🔒 Accès refusé / Access denied</span>
+      <p>Ce lien doit contenir la clé admin (?key=...).</p>
     </div>
 
     <div id="app" style="display:none;">
-
-      <div id="saveBar" class="save-bar">
-        <span id="saveStatus" class="save-status saved">✅ محفوظ — المشاهدين شايفين هاد النقط</span>
-        <button id="saveBtn" class="btn accent-solid" disabled>💾 حفظ وإرسال للمشاهدين</button>
+      <div class="save-bar">
+        <span id="saveStatus" class="save-status saved">✅ Enregistré</span>
+        <button id="saveBtn" class="btn" disabled>💾 <span data-i18n="save"></span></button>
       </div>
 
-      <div id="list" class="admin-list"></div>
-
-      <div class="add-panel">
-        <input type="text" id="newTeamName" placeholder="سمية الفريق الجديد..." />
-        <button class="btn accent-solid" id="addTeamBtn">➕ زيد فريق</button>
+      <div class="medal-wrap">
+        <table class="medal-table" id="medalTable"></table>
       </div>
 
-      <div class="footer-note">اللائحة ثابتة بلا ترتيب أوتوماتيكي — الفريق ما كيتحركش ملي تزيد ليه نقط</div>
+      <div class="tow-panel">
+        <div class="tow-head" data-i18n="equipeSemaine"></div>
+        <div class="tow-body">
+          <div class="tow-field">
+            <label data-i18n="zone"></label>
+            <select id="towZone"><option value="">—</option></select>
+          </div>
+          <div class="tow-field">
+            <label data-i18n="equipe"></label>
+            <select id="towEquipe"><option value="">—</option></select>
+          </div>
+          <div class="tow-field">
+            <label data-i18n="total"></label>
+            <span class="static-value" id="towTotal">—</span>
+          </div>
+          <div class="tow-field">
+            <label data-i18n="recompense"></label>
+            <input type="text" id="towReward" placeholder="..." />
+          </div>
+        </div>
+      </div>
+
+      <div class="legend-text" id="legendText"></div>
     </div>
   </div>
 
@@ -52,191 +68,253 @@
 
     // --- gate check ---
     const params = new URLSearchParams(window.location.search);
-    const providedKey = params.get("key");
-    if (providedKey !== ADMIN_KEY) {
+    if (params.get("key") !== ADMIN_KEY) {
       document.getElementById("gate").style.display = "block";
-      throw new Error("Unauthorized: missing or wrong admin key");
+      throw new Error("Unauthorized");
     }
     document.getElementById("app").style.display = "block";
 
+    // ---------- fixed structure ----------
+    const ZONES = ["VARIABLE", "BMB", "ENGEL"];
+    const TEAM_IDS = ["A", "B", "C", "D"];
+    const CRITERIA = ["trs", "valid", "presence", "org"];
+    const MAX_MEDALS = 5;
+
+    const T = {
+      fr: {
+        semaine: "SEMAINE", du: "DU", au: "AU", criteres: "CRITÈRES",
+        equipe: "Équipe", totalMedailles: "TOTAL MÉDAILLES",
+        equipeSemaine: "ÉQUIPE DE LA SEMAINE", zone: "Zone :", recompense: "Récompense :",
+        total: "Total :", medaillesWord: "médailles", save: "Enregistrer et envoyer",
+        savedMsg: "✅ Enregistré", unsavedMsg: "⚠️ Modifications non enregistrées", syncingMsg: "🔄 Synchronisation...",
+        crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Plus de 75 % = 1 médaille",
+        crit_valid_t: "Validations machines", crit_valid_s: "Validation réussie = 1 médaille",
+        crit_presence_t: "Présence / Assiduité", crit_presence_s: "Moins de 5 absences par équipe = 1 médaille",
+        crit_org_t: "5S & Organisation", crit_org_s: "Zone conforme + 0 fiche AC = 1 médaille",
+        legend: "Cliquez sur une case pour ajouter une médaille (0→5→0). Le total se calcule automatiquement.",
+        weekNumPh: "N°", updated: "Dernier enregistrement : "
+      },
+      en: {
+        semaine: "WEEK", du: "FROM", au: "TO", criteres: "CRITERIA",
+        equipe: "Team", totalMedailles: "TOTAL MEDALS",
+        equipeSemaine: "TEAM OF THE WEEK", zone: "Zone:", recompense: "Reward:",
+        total: "Total:", medaillesWord: "medals", save: "Save and send",
+        savedMsg: "✅ Saved", unsavedMsg: "⚠️ Unsaved changes", syncingMsg: "🔄 Syncing...",
+        crit_trs_t: "OEE ≥ 75 %", crit_trs_s: "Over 75 % = 1 medal",
+        crit_valid_t: "Machine validations", crit_valid_s: "Successful validation = 1 medal",
+        crit_presence_t: "Attendance", crit_presence_s: "Fewer than 5 absences per team = 1 medal",
+        crit_org_t: "5S & Organization", crit_org_s: "Compliant area + 0 non-conformity = 1 medal",
+        legend: "Tap a cell to add a medal (0→5→0). The total is calculated automatically.",
+        weekNumPh: "No.", updated: "Last saved: "
+      },
+      es: {
+        semaine: "SEMANA", du: "DEL", au: "AL", criteres: "CRITERIOS",
+        equipe: "Equipo", totalMedailles: "TOTAL MEDALLAS",
+        equipeSemaine: "EQUIPO DE LA SEMANA", zone: "Zona:", recompense: "Recompensa:",
+        total: "Total:", medaillesWord: "medallas", save: "Guardar y enviar",
+        savedMsg: "✅ Guardado", unsavedMsg: "⚠️ Cambios sin guardar", syncingMsg: "🔄 Sincronizando...",
+        crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Más de 75 % = 1 medalla",
+        crit_valid_t: "Validaciones de máquina", crit_valid_s: "Validación exitosa = 1 medalla",
+        crit_presence_t: "Asistencia", crit_presence_s: "Menos de 5 ausencias por equipo = 1 medalla",
+        crit_org_t: "5S y Organización", crit_org_s: "Zona conforme + 0 ficha AC = 1 medalla",
+        legend: "Toque una celda para añadir una medalla (0→5→0). El total se calcula automáticamente.",
+        weekNumPh: "N.º", updated: "Último guardado: "
+      }
+    };
+
+    let lang = localStorage.getItem("lang") || "fr";
+    let workingDoc = { week: { number: "", from: "", to: "" }, medals: {}, teamOfWeek: { zone: "", team: "", reward: "" } };
+    let dirty = false;
+
+    const gearBtn = document.getElementById("gearBtn");
+    const langMenu = document.getElementById("langMenu");
+    gearBtn.addEventListener("click", () => langMenu.classList.toggle("open"));
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".lang-switch")) langMenu.classList.remove("open");
+    });
+    langMenu.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        lang = btn.dataset.lang;
+        localStorage.setItem("lang", lang);
+        langMenu.classList.remove("open");
+        applyLangHighlight();
+        renderStatic();
+        fillFromWorkingDoc();
+      });
+    });
+    function applyLangHighlight() {
+      langMenu.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+    }
+
+    function medalIcons(count) {
+      if (!count) return "";
+      if (count <= 3) return "🏅".repeat(count);
+      return `<span class="medal-count-badge">🏅×${count}</span>`;
+    }
+
+    function setDirty(state) {
+      dirty = state;
+      const saveBtn = document.getElementById("saveBtn");
+      const saveStatus = document.getElementById("saveStatus");
+      saveBtn.disabled = !state;
+      const t = T[lang];
+      saveStatus.textContent = state ? t.unsavedMsg : t.savedMsg;
+      saveStatus.className = "save-status " + (state ? "unsaved" : "saved");
+    }
+
+    // ---------- build the static table skeleton + interactive cells ----------
+    function renderStatic() {
+      const t = T[lang];
+      const table = document.getElementById("medalTable");
+
+      let thead = `<thead>
+        <tr class="zone-row">
+          <th class="week-cell">
+            ${t.semaine} (<input type="text" id="weekNum" placeholder="${t.weekNumPh}" style="width:34px;" />)<br/>
+            ${t.du}: <input type="date" id="weekFrom" /><br/>
+            ${t.au}: <input type="date" id="weekTo" />
+          </th>
+          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}">${z}</th>`).join("")}
+        </tr>
+        <tr class="team-row">
+          <th>${t.criteres}</th>
+          ${ZONES.map(() => TEAM_IDS.map(id => `<th>${t.equipe} ${id}</th>`).join("")).join("")}
+        </tr>
+      </thead>`;
+
+      let tbody = "<tbody>";
+      CRITERIA.forEach(critId => {
+        tbody += `<tr>
+          <td class="crit-cell">
+            <span class="crit-title">${t["crit_" + critId + "_t"]}</span>
+            <span class="crit-sub">${t["crit_" + critId + "_s"]}</span>
+          </td>
+          ${ZONES.map(zone => TEAM_IDS.map(team => {
+            const key = `${zone}_${team}_${critId}`;
+            return `<td class="data-cell editable" data-key="${key}"></td>`;
+          }).join("")).join("")}
+        </tr>`;
+      });
+      tbody += `<tr class="total-row">
+        <th>${t.totalMedailles}</th>
+        ${ZONES.map(zone => TEAM_IDS.map(team => `<td data-total="${zone}_${team}">0</td>`).join("")).join("")}
+      </tr></tbody>`;
+
+      table.innerHTML = thead + tbody;
+
+      // click-to-cycle medal cells
+      table.querySelectorAll("td.editable").forEach(cell => {
+        cell.addEventListener("click", () => {
+          const key = cell.dataset.key;
+          const current = workingDoc.medals[key] || 0;
+          workingDoc.medals[key] = (current + 1) % (MAX_MEDALS + 1);
+          setDirty(true);
+          updateCell(key);
+          updateTotalFor(key.split("_")[0], key.split("_")[1]);
+          syncTowTotalIfSelected();
+        });
+      });
+
+      // week fields
+      document.getElementById("weekNum").addEventListener("input", (e) => { workingDoc.week.number = e.target.value; setDirty(true); });
+      document.getElementById("weekFrom").addEventListener("input", (e) => { workingDoc.week.from = e.target.value; setDirty(true); });
+      document.getElementById("weekTo").addEventListener("input", (e) => { workingDoc.week.to = e.target.value; setDirty(true); });
+
+      // team-of-week selects
+      const zoneSel = document.getElementById("towZone");
+      const equipeSel = document.getElementById("towEquipe");
+      zoneSel.innerHTML = `<option value="">—</option>` + ZONES.map(z => `<option value="${z}">${z}</option>`).join("");
+      equipeSel.innerHTML = `<option value="">—</option>` + TEAM_IDS.map(id => `<option value="${id}">${t.equipe} ${id}</option>`).join("");
+      zoneSel.addEventListener("change", () => { workingDoc.teamOfWeek.zone = zoneSel.value; setDirty(true); syncTowTotalIfSelected(); });
+      equipeSel.addEventListener("change", () => { workingDoc.teamOfWeek.team = equipeSel.value; setDirty(true); syncTowTotalIfSelected(); });
+      document.getElementById("towReward").addEventListener("input", (e) => { workingDoc.teamOfWeek.reward = e.target.value; setDirty(true); });
+
+      document.getElementById("legendText").textContent = t.legend;
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (t[key] !== undefined) el.textContent = t[key];
+      });
+      applyLangHighlight();
+    }
+
+    function updateCell(key) {
+      const cell = document.querySelector(`[data-key="${key}"]`);
+      if (cell) cell.innerHTML = `<span class="medal-icons">${medalIcons(workingDoc.medals[key] || 0)}</span>`;
+    }
+
+    function updateTotalFor(zone, team) {
+      let total = 0;
+      CRITERIA.forEach(c => total += (workingDoc.medals[`${zone}_${team}_${c}`] || 0));
+      const cell = document.querySelector(`[data-total="${zone}_${team}"]`);
+      if (cell) cell.textContent = total;
+    }
+
+    function syncTowTotalIfSelected() {
+      const t = T[lang];
+      const { zone, team } = workingDoc.teamOfWeek;
+      if (zone && team) {
+        let total = 0;
+        CRITERIA.forEach(c => total += (workingDoc.medals[`${zone}_${team}_${c}`] || 0));
+        document.getElementById("towTotal").textContent = `${total} ${t.medaillesWord}`;
+      } else {
+        document.getElementById("towTotal").textContent = "—";
+      }
+    }
+
+    function fillFromWorkingDoc() {
+      const w = workingDoc.week || {};
+      document.getElementById("weekNum").value = w.number || "";
+      document.getElementById("weekFrom").value = w.from || "";
+      document.getElementById("weekTo").value = w.to || "";
+
+      ZONES.forEach(zone => TEAM_IDS.forEach(team => {
+        CRITERIA.forEach(critId => updateCell(`${zone}_${team}_${critId}`));
+        updateTotalFor(zone, team);
+      }));
+
+      const tow = workingDoc.teamOfWeek || {};
+      document.getElementById("towZone").value = tow.zone || "";
+      document.getElementById("towEquipe").value = tow.team || "";
+      document.getElementById("towReward").value = tow.reward || "";
+      syncTowTotalIfSelected();
+    }
+
+    renderStatic();
+
     const app = initializeApp(firebaseConfig);
-    // Offline persistence: writes resolve instantly from local cache, then
-    // sync to the server quietly whenever the connection allows — no more
-    // waiting on a slow / spotty network to feel the save happen.
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
     });
     const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
 
-    const listEl = document.getElementById("list");
-    const updatedEl = document.getElementById("updated");
-    const newTeamName = document.getElementById("newTeamName");
-    const addTeamBtn = document.getElementById("addTeamBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    const saveStatus = document.getElementById("saveStatus");
-
-    let workingTeams = [];   // local draft — what the admin is editing (order = display order, never re-sorted)
-    let latestHistory = [];  // last known history array from the server
-    let dirty = false;       // true = unsaved local changes exist
-    const rowRefs = new Map(); // team.id -> { scoreValEl }
-
-    function uid() {
-      return Math.random().toString(36).slice(2, 10);
-    }
-
-    function setDirty(state) {
-      dirty = state;
-      saveBtn.disabled = !state;
-      if (state) {
-        saveStatus.textContent = "⚠️ عندك تبديلات ماشي محفوظة";
-        saveStatus.className = "save-status unsaved";
-      } else {
-        saveStatus.textContent = "✅ محفوظ — المشاهدين شايفين هاد النقط";
-        saveStatus.className = "save-status saved";
-      }
-    }
-
-    // Full rebuild — only called when teams are added/removed, or on first load.
-    // Order is NOT sorted by score, so cards stay put while tapping +/-.
-    function renderAll(teams) {
-      rowRefs.clear();
-
-      if (teams.length === 0) {
-        listEl.innerHTML = `<div class="empty-state"><span class="big">زيد أول فريق</span>استعمل الفورم لتحت باش تبدا</div>`;
-        return;
-      }
-
-      listEl.innerHTML = "";
-      teams.forEach((team, i) => {
-        const card = document.createElement("div");
-        card.className = "admin-card";
-
-        const delBtn = document.createElement("button");
-        delBtn.className = "del-btn";
-        delBtn.textContent = "🗑";
-        delBtn.title = "حذف الفريق";
-        delBtn.addEventListener("click", () => {
-          if (confirm(`متأكد بغيتي تحيد "${team.name}"؟`)) removeTeam(team.id);
-        });
-
-        const head = document.createElement("div");
-        head.className = "card-head";
-        const rankTag = document.createElement("span");
-        rankTag.className = "admin-rank";
-        rankTag.textContent = i + 1;
-        const nameInput = document.createElement("input");
-        nameInput.className = "name-edit";
-        nameInput.type = "text";
-        nameInput.value = team.name;
-        nameInput.addEventListener("change", () => {
-          patchTeamName(team.id, nameInput.value.trim() || team.name);
-        });
-        head.appendChild(rankTag);
-        head.appendChild(nameInput);
-
-        const scoreDisplay = document.createElement("div");
-        scoreDisplay.className = "score-display";
-        const scoreVal = document.createElement("span");
-        scoreVal.className = "score-value";
-        scoreVal.textContent = team.score;
-        scoreDisplay.appendChild(scoreVal);
-
-        const btnGrid = document.createElement("div");
-        btnGrid.className = "btn-grid";
-        const mkBtn = (label, delta, cls) => {
-          const b = document.createElement("button");
-          b.className = "btn " + cls;
-          b.textContent = label;
-          b.addEventListener("click", () => patchTeamScore(team.id, delta));
-          return b;
-        };
-        [["−10", -10, "minus"], ["−5", -5, "minus"], ["−1", -1, "minus"],
-         ["+1", 1, "plus"], ["+5", 5, "plus"], ["+10", 10, "plus"]]
-          .forEach(([label, delta, cls]) => btnGrid.appendChild(mkBtn(label, delta, cls)));
-
-        card.appendChild(delBtn);
-        card.appendChild(head);
-        card.appendChild(scoreDisplay);
-        card.appendChild(btnGrid);
-        listEl.appendChild(card);
-
-        rowRefs.set(team.id, { scoreValEl: scoreVal });
-      });
-    }
-
-    // Fast path: score change only touches the one number on screen, no rebuild, no jump.
-    function patchTeamScore(id, delta) {
-      workingTeams = workingTeams.map(t => t.id === id ? { ...t, score: t.score + delta } : t);
-      setDirty(true);
-      const team = workingTeams.find(t => t.id === id);
-      const refEls = rowRefs.get(id);
-      if (refEls) refEls.scoreValEl.textContent = team.score;
-    }
-
-    function patchTeamName(id, name) {
-      workingTeams = workingTeams.map(t => t.id === id ? { ...t, name } : t);
-      setDirty(true);
-      // name edits don't need a full rebuild, the input already shows the typed value
-    }
-
-    function removeTeam(id) {
-      workingTeams = workingTeams.filter(t => t.id !== id);
-      setDirty(true);
-      renderAll(workingTeams);
-    }
-
-    addTeamBtn.addEventListener("click", () => {
-      const name = newTeamName.value.trim();
-      if (!name) return;
-      workingTeams = [...workingTeams, { id: uid(), name, score: 0 }];
-      setDirty(true);
-      renderAll(workingTeams);
-      newTeamName.value = "";
-    });
-    newTeamName.addEventListener("keydown", (e) => { if (e.key === "Enter") addTeamBtn.click(); });
-
-    saveBtn.addEventListener("click", () => {
-      const historyPoint = {
-        t: Date.now(),
-        scores: Object.fromEntries(workingTeams.map(t => [t.id, t.score]))
-      };
-      const newHistory = [...latestHistory, historyPoint].slice(-60); // keep last 60 points
-      const payload = { teams: workingTeams, history: newHistory, updatedAt: serverTimestamp() };
-
-      // Optimistic: the local cache queues this write instantly, so we don't
-      // make the admin wait on the network — it syncs to the server quietly
-      // in the background even on a slow / flaky connection.
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      const t = T[lang];
+      const payload = { ...workingDoc, updatedAt: serverTimestamp() };
       setDirty(false);
-      saveStatus.textContent = "🔄 كيتسجل محليا وكيتزامن...";
-      saveStatus.className = "save-status unsaved";
+      document.getElementById("saveStatus").textContent = t.syncingMsg;
+      document.getElementById("saveStatus").className = "save-status unsaved";
 
       setDoc(ref, payload)
-        .then(() => {
-          if (!dirty) {
-            saveStatus.textContent = "✅ محفوظ — المشاهدين شايفين هاد النقط";
-            saveStatus.className = "save-status saved";
-          }
-        })
-        .catch((err) => {
-          console.error(err);
-          alert("خطأ فالحفظ، عاود جرب");
-          setDirty(true);
-        });
+        .then(() => { if (!dirty) { document.getElementById("saveStatus").textContent = t.savedMsg; document.getElementById("saveStatus").className = "save-status saved"; } })
+        .catch((err) => { console.error(err); alert("Error saving"); setDirty(true); });
     });
 
     onSnapshot(ref, (snap) => {
-      const data = snap.exists() ? snap.data() : { teams: [], history: [] };
-      latestHistory = data.history || [];
+      const data = snap.exists() ? snap.data() : {};
       if (!dirty) {
-        workingTeams = data.teams || [];
-        renderAll(workingTeams);
+        workingDoc = {
+          week: data.week || { number: "", from: "", to: "" },
+          medals: data.medals || {},
+          teamOfWeek: data.teamOfWeek || { zone: "", team: "", reward: "" }
+        };
+        fillFromWorkingDoc();
       }
       if (data.updatedAt) {
-        const t = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
-        updatedEl.textContent = "آخر حفظ: " + t.toLocaleTimeString("ar-MA", { hour: "2-digit", minute: "2-digit" });
+        const d = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+        document.getElementById("updated").textContent = T[lang].updated + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
       }
     }, (err) => {
-      updatedEl.textContent = "خطأ فالاتصال";
+      document.getElementById("updated").textContent = "Erreur de connexion";
       console.error(err);
     });
   </script>
