@@ -213,12 +213,52 @@ table.medal-table {
 .medal-table tbody tr:nth-child(even) td.data-cell { background: var(--grey-cell-alt); }
 
 td.data-cell {
-  font-size: 14px;
-  min-height: 40px;
-  height: 40px;
+  font-size: 13px;
+  height: auto;
+  min-height: 34px;
+  padding: 4px 2px;
+  position: relative;
 }
-td.data-cell.editable { cursor: pointer; user-select: none; }
-td.data-cell.editable:active { background: #E4E9E5 !important; }
+td.data-cell.editable { cursor: default; user-select: none; }
+
+.medal-cell-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.mstep {
+  border: none;
+  background: rgba(0,0,0,0.07);
+  color: var(--text);
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+.mstep:active { background: rgba(0,0,0,0.18); transform: scale(0.9); }
+.mstep.plus { color: var(--green-dark); }
+.mstep.minus { color: #B23A3A; }
+.mstep:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.cell-clear {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  font-size: 9px;
+  color: #A5A9A5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px 3px;
+  line-height: 1;
+}
+.cell-clear:hover { color: #B23A3A; }
 
 .medal-icons {
   display: flex;
@@ -226,13 +266,45 @@ td.data-cell.editable:active { background: #E4E9E5 !important; }
   justify-content: center;
   gap: 1px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 12px;
+  min-width: 16px;
 }
 .medal-count-badge {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text);
 }
+
+/* ---------- inline editable names (admin only) ---------- */
+.name-edit-inline {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed rgba(255,255,255,0.55);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  width: 100%;
+  padding: 2px 0;
+}
+.name-edit-inline::placeholder { color: rgba(255,255,255,0.7); }
+.name-edit-inline.small { font-size: 11px; font-weight: 600; }
+.name-edit-inline:focus { outline: none; border-bottom-color: #fff; }
+
+.crit-cell input.crit-title-input {
+  background: transparent; border: none; border-bottom: 1px dashed var(--border-cell);
+  color: var(--green); font-weight: 700; font-size: 13px; width: 100%; padding: 2px 0; margin-bottom: 3px;
+  font-family: inherit;
+}
+.crit-cell input.crit-sub-input {
+  background: transparent; border: none; border-bottom: 1px dashed var(--border-cell);
+  color: var(--text-dim); font-size: 11px; width: 100%; padding: 1px 0; font-family: inherit;
+}
+.crit-cell input:focus { outline: none; border-bottom-color: var(--green); }
+
+.btn.danger { background: #B23A3A; }
+.btn.danger:hover { background: #8F2E2E; }
 
 tr.total-row th, tr.total-row td {
   background: var(--green-dark) !important;
