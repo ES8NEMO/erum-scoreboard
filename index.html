@@ -127,11 +127,11 @@
             ${t.du}: <span id="weekFrom">—</span><br/>
             ${t.au}: <span id="weekTo">—</span>
           </th>
-          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}">${z}</th>`).join("")}
+          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}" data-zonelabel="${z}">${z}</th>`).join("")}
         </tr>
         <tr class="team-row">
           <th>${t.criteres}</th>
-          ${ZONES.map(() => TEAM_IDS.map(id => `<th>${t.equipe} ${id}</th>`).join("")).join("")}
+          ${ZONES.map(z => TEAM_IDS.map(id => `<th data-teamlabel="${z}_${id}">${t.equipe} ${id}</th>`).join("")).join("")}
         </tr>
       </thead>`;
 
@@ -139,8 +139,8 @@
       CRITERIA.forEach(critId => {
         tbody += `<tr>
           <td class="crit-cell">
-            <span class="crit-title">${t["crit_" + critId + "_t"]}</span>
-            <span class="crit-sub">${t["crit_" + critId + "_s"]}</span>
+            <span class="crit-title" data-crittitle="${critId}">${t["crit_" + critId + "_t"]}</span>
+            <span class="crit-sub" data-critsub="${critId}">${t["crit_" + critId + "_s"]}</span>
           </td>
           ${ZONES.map(zone => TEAM_IDS.map(team => {
             const key = `${zone}_${team}_${critId}`;
@@ -173,6 +173,25 @@
       document.getElementById("weekFrom").textContent = week.from || "—";
       document.getElementById("weekTo").textContent = week.to || "—";
 
+      // custom names override the translated defaults (textContent is XSS-safe either way)
+      const cl = data.customLabels || {};
+      ZONES.forEach(z => {
+        const el = document.querySelector(`[data-zonelabel="${z}"]`);
+        if (el) el.textContent = (cl.zones && cl.zones[z]) || z;
+      });
+      ZONES.forEach(zone => TEAM_IDS.forEach(id => {
+        const key = `${zone}_${id}`;
+        const el = document.querySelector(`[data-teamlabel="${key}"]`);
+        if (el) el.textContent = (cl.teams && cl.teams[key]) || `${t.equipe} ${id}`;
+      }));
+      CRITERIA.forEach(critId => {
+        const custom = cl.criteria && cl.criteria[critId];
+        const titleEl = document.querySelector(`[data-crittitle="${critId}"]`);
+        const subEl = document.querySelector(`[data-critsub="${critId}"]`);
+        if (titleEl) titleEl.textContent = (custom && custom.title) || t["crit_" + critId + "_t"];
+        if (subEl) subEl.textContent = (custom && custom.sub) || t["crit_" + critId + "_s"];
+      });
+
       const medals = data.medals || {};
       ZONES.forEach(zone => TEAM_IDS.forEach(team => {
         let total = 0;
@@ -188,8 +207,11 @@
       }));
 
       const tow = data.teamOfWeek || {};
-      document.getElementById("towZone").textContent = tow.zone || "—";
-      document.getElementById("towEquipe").textContent = tow.zone && tow.team ? `${t.equipe} ${tow.team}` : "—";
+      const towTeamKey = tow.zone && tow.team ? `${tow.zone}_${tow.team}` : null;
+      document.getElementById("towZone").textContent = tow.zone ? ((cl.zones && cl.zones[tow.zone]) || tow.zone) : "—";
+      document.getElementById("towEquipe").textContent = towTeamKey
+        ? ((cl.teams && cl.teams[towTeamKey]) || `${t.equipe} ${tow.team}`)
+        : "—";
       document.getElementById("towTotal").textContent = tow.zone && tow.team
         ? `${(() => {
             let s = 0; CRITERIA.forEach(c => s += (medals[`${tow.zone}_${tow.team}_${c}`] || 0)); return s;
