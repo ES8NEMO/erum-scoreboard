@@ -28,7 +28,10 @@
     <div id="app" style="display:none;">
       <div class="save-bar">
         <span id="saveStatus" class="save-status saved">✅ Enregistré</span>
-        <button id="saveBtn" class="btn" disabled>💾 <span data-i18n="save"></span></button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="clearAllBtn" class="btn danger">🗑 <span data-i18n="clearAll"></span></button>
+          <button id="saveBtn" class="btn" disabled>💾 <span data-i18n="save"></span></button>
+        </div>
       </div>
 
       <div class="medal-wrap">
@@ -74,11 +77,18 @@
     }
     document.getElementById("app").style.display = "block";
 
+    // Escape any free-typed text before it's interpolated into an HTML string
+    // (custom zone/team/criteria names) — prevents HTML/markup injection.
+    function escapeHtml(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
     // ---------- fixed structure ----------
     const ZONES = ["VARIABLE", "BMB", "ENGEL"];
     const TEAM_IDS = ["A", "B", "C", "D"];
     const CRITERIA = ["trs", "valid", "presence", "org"];
-    const MAX_MEDALS = 5;
 
     const T = {
       fr: {
@@ -86,44 +96,55 @@
         equipe: "Équipe", totalMedailles: "TOTAL MÉDAILLES",
         equipeSemaine: "ÉQUIPE DE LA SEMAINE", zone: "Zone :", recompense: "Récompense :",
         total: "Total :", medaillesWord: "médailles", save: "Enregistrer et envoyer",
+        clearAll: "Tout effacer",
         savedMsg: "✅ Enregistré", unsavedMsg: "⚠️ Modifications non enregistrées", syncingMsg: "🔄 Synchronisation...",
         crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Plus de 75 % = 1 médaille",
         crit_valid_t: "Validations machines", crit_valid_s: "Validation réussie = 1 médaille",
         crit_presence_t: "Présence / Assiduité", crit_presence_s: "Moins de 5 absences par équipe = 1 médaille",
         crit_org_t: "5S & Organisation", crit_org_s: "Zone conforme + 0 fiche AC = 1 médaille",
-        legend: "Cliquez sur une case pour ajouter une médaille (0→5→0). Le total se calcule automatiquement.",
-        weekNumPh: "N°", updated: "Dernier enregistrement : "
+        legend: "Cliquez + / − pour ajouter ou retirer une médaille. Le petit × efface une case. Le total se calcule automatiquement.",
+        weekNumPh: "N°", updated: "Dernier enregistrement : ",
+        confirmClearAll: "Effacer TOUTES les médailles de toutes les équipes ? Cette action ne peut être annulée qu'en resauvegardant."
       },
       en: {
         semaine: "WEEK", du: "FROM", au: "TO", criteres: "CRITERIA",
         equipe: "Team", totalMedailles: "TOTAL MEDALS",
         equipeSemaine: "TEAM OF THE WEEK", zone: "Zone:", recompense: "Reward:",
         total: "Total:", medaillesWord: "medals", save: "Save and send",
+        clearAll: "Clear all",
         savedMsg: "✅ Saved", unsavedMsg: "⚠️ Unsaved changes", syncingMsg: "🔄 Syncing...",
         crit_trs_t: "OEE ≥ 75 %", crit_trs_s: "Over 75 % = 1 medal",
         crit_valid_t: "Machine validations", crit_valid_s: "Successful validation = 1 medal",
         crit_presence_t: "Attendance", crit_presence_s: "Fewer than 5 absences per team = 1 medal",
         crit_org_t: "5S & Organization", crit_org_s: "Compliant area + 0 non-conformity = 1 medal",
-        legend: "Tap a cell to add a medal (0→5→0). The total is calculated automatically.",
-        weekNumPh: "No.", updated: "Last saved: "
+        legend: "Tap + / − to add or remove a medal. The small × clears a cell. The total is calculated automatically.",
+        weekNumPh: "No.", updated: "Last saved: ",
+        confirmClearAll: "Clear ALL medals for every team? This can only be undone by not saving."
       },
       es: {
         semaine: "SEMANA", du: "DEL", au: "AL", criteres: "CRITERIOS",
         equipe: "Equipo", totalMedailles: "TOTAL MEDALLAS",
         equipeSemaine: "EQUIPO DE LA SEMANA", zone: "Zona:", recompense: "Recompensa:",
         total: "Total:", medaillesWord: "medallas", save: "Guardar y enviar",
+        clearAll: "Borrar todo",
         savedMsg: "✅ Guardado", unsavedMsg: "⚠️ Cambios sin guardar", syncingMsg: "🔄 Sincronizando...",
         crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Más de 75 % = 1 medalla",
         crit_valid_t: "Validaciones de máquina", crit_valid_s: "Validación exitosa = 1 medalla",
         crit_presence_t: "Asistencia", crit_presence_s: "Menos de 5 ausencias por equipo = 1 medalla",
         crit_org_t: "5S y Organización", crit_org_s: "Zona conforme + 0 ficha AC = 1 medalla",
-        legend: "Toque una celda para añadir una medalla (0→5→0). El total se calcula automáticamente.",
-        weekNumPh: "N.º", updated: "Último guardado: "
+        legend: "Toque + / − para añadir o quitar una medalla. El × pequeño borra una casilla. El total se calcula automáticamente.",
+        weekNumPh: "N.º", updated: "Último guardado: ",
+        confirmClearAll: "¿Borrar TODAS las medallas de todos los equipos? Solo se puede deshacer si no guarda."
       }
     };
 
     let lang = localStorage.getItem("lang") || "fr";
-    let workingDoc = { week: { number: "", from: "", to: "" }, medals: {}, teamOfWeek: { zone: "", team: "", reward: "" } };
+    let workingDoc = {
+      week: { number: "", from: "", to: "" },
+      medals: {},
+      teamOfWeek: { zone: "", team: "", reward: "" },
+      customLabels: { zones: {}, teams: {}, criteria: {} }
+    };
     let dirty = false;
 
     const gearBtn = document.getElementById("gearBtn");
@@ -166,6 +187,7 @@
     function renderStatic() {
       const t = T[lang];
       const table = document.getElementById("medalTable");
+      const cl = workingDoc.customLabels || { zones: {}, teams: {}, criteria: {} };
 
       let thead = `<thead>
         <tr class="zone-row">
@@ -174,24 +196,38 @@
             ${t.du}: <input type="date" id="weekFrom" /><br/>
             ${t.au}: <input type="date" id="weekTo" />
           </th>
-          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}">${z}</th>`).join("")}
+          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}">
+              <input class="name-edit-inline" data-zonekey="${z}" placeholder="${z}" value="${escapeHtml(cl.zones?.[z] || "")}" />
+            </th>`).join("")}
         </tr>
         <tr class="team-row">
           <th>${t.criteres}</th>
-          ${ZONES.map(() => TEAM_IDS.map(id => `<th>${t.equipe} ${id}</th>`).join("")).join("")}
+          ${ZONES.map(z => TEAM_IDS.map(id => {
+            const key = `${z}_${id}`;
+            return `<th><input class="name-edit-inline small" data-teamkey="${key}" placeholder="${t.equipe} ${id}" value="${escapeHtml(cl.teams?.[key] || "")}" /></th>`;
+          }).join("")).join("")}
         </tr>
       </thead>`;
 
       let tbody = "<tbody>";
       CRITERIA.forEach(critId => {
+        const custTitle = cl.criteria?.[critId]?.title || "";
+        const custSub = cl.criteria?.[critId]?.sub || "";
         tbody += `<tr>
           <td class="crit-cell">
-            <span class="crit-title">${t["crit_" + critId + "_t"]}</span>
-            <span class="crit-sub">${t["crit_" + critId + "_s"]}</span>
+            <input class="crit-title-input" data-crittitle="${critId}" placeholder="${escapeHtml(t['crit_' + critId + '_t'])}" value="${escapeHtml(custTitle)}" />
+            <input class="crit-sub-input" data-critsub="${critId}" placeholder="${escapeHtml(t['crit_' + critId + '_s'])}" value="${escapeHtml(custSub)}" />
           </td>
           ${ZONES.map(zone => TEAM_IDS.map(team => {
             const key = `${zone}_${team}_${critId}`;
-            return `<td class="data-cell editable" data-key="${key}"></td>`;
+            return `<td class="data-cell editable" data-key="${key}">
+              <button class="cell-clear" data-clear="${key}" title="clear">×</button>
+              <div class="medal-cell-inner">
+                <button class="mstep minus" data-minus="${key}">−</button>
+                <span class="medal-icons" data-icons="${key}"></span>
+                <button class="mstep plus" data-plus="${key}">+</button>
+              </div>
+            </td>`;
           }).join("")).join("")}
         </tr>`;
       });
@@ -202,31 +238,38 @@
 
       table.innerHTML = thead + tbody;
 
-      // click-to-cycle medal cells
-      table.querySelectorAll("td.editable").forEach(cell => {
-        cell.addEventListener("click", () => {
-          const key = cell.dataset.key;
-          const current = workingDoc.medals[key] || 0;
-          workingDoc.medals[key] = (current + 1) % (MAX_MEDALS + 1);
-          setDirty(true);
-          updateCell(key);
-          updateTotalFor(key.split("_")[0], key.split("_")[1]);
-          syncTowTotalIfSelected();
-        });
-      });
+      // medal +/-/clear buttons
+      table.querySelectorAll("[data-plus]").forEach(b => b.addEventListener("click", () => bumpMedal(b.dataset.plus, 1)));
+      table.querySelectorAll("[data-minus]").forEach(b => b.addEventListener("click", () => bumpMedal(b.dataset.minus, -1)));
+      table.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => clearCell(b.dataset.clear)));
+
+      // custom name inputs — update workingDoc silently, no re-render (keeps focus)
+      table.querySelectorAll("[data-zonekey]").forEach(inp => inp.addEventListener("input", () => {
+        workingDoc.customLabels.zones[inp.dataset.zonekey] = inp.value;
+        setDirty(true);
+      }));
+      table.querySelectorAll("[data-teamkey]").forEach(inp => inp.addEventListener("input", () => {
+        workingDoc.customLabels.teams[inp.dataset.teamkey] = inp.value;
+        setDirty(true);
+        refreshTeamOfWeekOptions();
+      }));
+      table.querySelectorAll("[data-crittitle]").forEach(inp => inp.addEventListener("input", () => {
+        workingDoc.customLabels.criteria[inp.dataset.crittitle] = { ...(workingDoc.customLabels.criteria[inp.dataset.crittitle] || {}), title: inp.value };
+        setDirty(true);
+      }));
+      table.querySelectorAll("[data-critsub]").forEach(inp => inp.addEventListener("input", () => {
+        workingDoc.customLabels.criteria[inp.dataset.critsub] = { ...(workingDoc.customLabels.criteria[inp.dataset.critsub] || {}), sub: inp.value };
+        setDirty(true);
+      }));
 
       // week fields
       document.getElementById("weekNum").addEventListener("input", (e) => { workingDoc.week.number = e.target.value; setDirty(true); });
       document.getElementById("weekFrom").addEventListener("input", (e) => { workingDoc.week.from = e.target.value; setDirty(true); });
       document.getElementById("weekTo").addEventListener("input", (e) => { workingDoc.week.to = e.target.value; setDirty(true); });
 
-      // team-of-week selects
-      const zoneSel = document.getElementById("towZone");
-      const equipeSel = document.getElementById("towEquipe");
-      zoneSel.innerHTML = `<option value="">—</option>` + ZONES.map(z => `<option value="${z}">${z}</option>`).join("");
-      equipeSel.innerHTML = `<option value="">—</option>` + TEAM_IDS.map(id => `<option value="${id}">${t.equipe} ${id}</option>`).join("");
-      zoneSel.addEventListener("change", () => { workingDoc.teamOfWeek.zone = zoneSel.value; setDirty(true); syncTowTotalIfSelected(); });
-      equipeSel.addEventListener("change", () => { workingDoc.teamOfWeek.team = equipeSel.value; setDirty(true); syncTowTotalIfSelected(); });
+      refreshTeamOfWeekOptions();
+      document.getElementById("towZone").addEventListener("change", (e) => { workingDoc.teamOfWeek.zone = e.target.value; setDirty(true); syncTowTotalIfSelected(); });
+      document.getElementById("towEquipe").addEventListener("change", (e) => { workingDoc.teamOfWeek.team = e.target.value; setDirty(true); syncTowTotalIfSelected(); });
       document.getElementById("towReward").addEventListener("input", (e) => { workingDoc.teamOfWeek.reward = e.target.value; setDirty(true); });
 
       document.getElementById("legendText").textContent = t.legend;
@@ -237,9 +280,46 @@
       applyLangHighlight();
     }
 
+    function refreshTeamOfWeekOptions() {
+      const t = T[lang];
+      const cl = workingDoc.customLabels || {};
+      const zoneSel = document.getElementById("towZone");
+      const equipeSel = document.getElementById("towEquipe");
+      const prevZone = zoneSel.value, prevTeam = equipeSel.value;
+      zoneSel.innerHTML = `<option value="">—</option>` + ZONES.map(z => `<option value="${z}">${escapeHtml(cl.zones?.[z] || z)}</option>`).join("");
+      equipeSel.innerHTML = `<option value="">—</option>` + TEAM_IDS.map(id => {
+        const key = `${prevZone || zoneSel.value}_${id}`;
+        return `<option value="${id}">${escapeHtml((cl.teams && cl.teams[key]) || (t.equipe + " " + id))}</option>`;
+      }).join("");
+      zoneSel.value = prevZone; equipeSel.value = prevTeam;
+    }
+
+    // ---------- medal math ----------
+    function bumpMedal(key, delta) {
+      const current = workingDoc.medals[key] || 0;
+      workingDoc.medals[key] = Math.max(0, current + delta);
+      setDirty(true);
+      updateCell(key);
+      const [zone, team] = key.split("_");
+      updateTotalFor(zone, team);
+      syncTowTotalIfSelected();
+    }
+
+    function clearCell(key) {
+      workingDoc.medals[key] = 0;
+      setDirty(true);
+      updateCell(key);
+      const [zone, team] = key.split("_");
+      updateTotalFor(zone, team);
+      syncTowTotalIfSelected();
+    }
+
     function updateCell(key) {
-      const cell = document.querySelector(`[data-key="${key}"]`);
-      if (cell) cell.innerHTML = `<span class="medal-icons">${medalIcons(workingDoc.medals[key] || 0)}</span>`;
+      const iconsEl = document.querySelector(`[data-icons="${key}"]`);
+      const count = workingDoc.medals[key] || 0;
+      if (iconsEl) iconsEl.innerHTML = medalIcons(count);
+      const minusBtn = document.querySelector(`[data-minus="${key}"]`);
+      if (minusBtn) minusBtn.disabled = count === 0;
     }
 
     function updateTotalFor(zone, team) {
@@ -274,6 +354,8 @@
 
       const tow = workingDoc.teamOfWeek || {};
       document.getElementById("towZone").value = tow.zone || "";
+      refreshTeamOfWeekOptions();
+      document.getElementById("towZone").value = tow.zone || "";
       document.getElementById("towEquipe").value = tow.team || "";
       document.getElementById("towReward").value = tow.reward || "";
       syncTowTotalIfSelected();
@@ -286,6 +368,18 @@
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
     });
     const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
+
+    document.getElementById("clearAllBtn").addEventListener("click", () => {
+      const t = T[lang];
+      if (!confirm(t.confirmClearAll)) return;
+      workingDoc.medals = {};
+      setDirty(true);
+      ZONES.forEach(zone => TEAM_IDS.forEach(team => {
+        CRITERIA.forEach(critId => updateCell(`${zone}_${team}_${critId}`));
+        updateTotalFor(zone, team);
+      }));
+      syncTowTotalIfSelected();
+    });
 
     document.getElementById("saveBtn").addEventListener("click", () => {
       const t = T[lang];
@@ -305,8 +399,10 @@
         workingDoc = {
           week: data.week || { number: "", from: "", to: "" },
           medals: data.medals || {},
-          teamOfWeek: data.teamOfWeek || { zone: "", team: "", reward: "" }
+          teamOfWeek: data.teamOfWeek || { zone: "", team: "", reward: "" },
+          customLabels: data.customLabels || { zones: {}, teams: {}, criteria: {} }
         };
+        renderStatic();
         fillFromWorkingDoc();
       }
       if (data.updatedAt) {
