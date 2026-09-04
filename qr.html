@@ -1,160 +1,63 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>QR Codes - Tableau des Médailles</title>
-
-  <link rel="stylesheet" href="./style.css" />
-
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Générer les QR Codes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: 'Inter', system-ui, sans-serif; background:#F4F5F3; color:#1E2320; padding: 16px 12px 50px; }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  .panel { background:#fff; border:1px solid #DADAD6; border-radius:10px; padding:18px; margin-bottom:14px; text-align:center; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+  .panel p.url { font-size: 11px; color:#5B615C; word-break: break-all; margin: 6px 0 12px; direction: ltr; }
+  .qr-box { display:inline-block; background:#fff; padding:8px; border-radius:8px; }
+  .keybox input { width:100%; border:1px solid #DADAD6; border-radius:6px; padding:10px 12px; font-family:inherit; font-size:14px; }
+  .footer-note { text-align:center; font-size:12px; color:#5B615C; margin-top: 10px; }
+</style>
 </head>
-
 <body>
+  <div class="wrap">
+    <h1>🏅 Générer les QR Codes</h1>
 
-  <div class="qr-page">
-
-    <div class="qr-container">
-
-      <h1>Tableau des Médailles</h1>
-
-      <p class="qr-subtitle">
-        Scannez le QR code pour accéder au tableau
-      </p>
-
-      <div class="qr-grid">
-
-        <!-- PUBLIC TABLE -->
-        <div class="qr-card">
-
-          <h2>📊 Tableau public</h2>
-
-          <p>
-            Accès pour les travailleurs et visiteurs
-          </p>
-
-          <div
-            id="publicQr"
-            class="qr-code">
-          </div>
-
-          <div class="qr-link">
-            <a
-              id="publicLink"
-              href="#"
-              target="_blank"
-              rel="noopener">
-              Ouvrir le tableau
-            </a>
-          </div>
-
-        </div>
-
-
-        <!-- ADMIN -->
-        <div class="qr-card">
-
-          <h2>🔐 Administration</h2>
-
-          <p>
-            Accès réservé à l'administrateur
-          </p>
-
-          <div
-            id="adminQr"
-            class="qr-code">
-          </div>
-
-          <div class="qr-link">
-            <a
-              id="adminLink"
-              href="#"
-              target="_blank"
-              rel="noopener">
-              Ouvrir l'administration
-            </a>
-          </div>
-
-        </div>
-
-      </div>
-
+    <div class="panel">
+      <p style="font-size:13px; color:#5B615C;">Entrez la clé admin (ADMIN_KEY dans firebase-config.js) :</p>
+      <div class="keybox"><input type="text" id="keyInput" placeholder="admin key..." /></div>
     </div>
 
+    <div class="panel">
+      <h2 style="font-size:16px;">📱 QR — Vue équipe (lecture seule)</h2>
+      <p class="url" id="viewerUrl"></p>
+      <div class="qr-box" id="qrViewer"></div>
+    </div>
+
+    <div class="panel">
+      <h2 style="font-size:16px;">🔧 QR — Admin</h2>
+      <p class="url" id="adminUrl">Entrez la clé ci-dessus...</p>
+      <div class="qr-box" id="qrAdmin"></div>
+    </div>
+
+    <div class="footer-note">Gardez le QR admin pour vous seul — ne le partagez pas.</div>
   </div>
 
-
   <script>
+    const base = window.location.href.replace(/qr\.html.*$/, "");
+    const viewerUrl = base + "index.html";
+    document.getElementById("viewerUrl").textContent = viewerUrl;
+    new QRCode(document.getElementById("qrViewer"), { text: viewerUrl, width: 190, height: 190 });
 
-    /*
-      This page automatically detects its current location.
-
-      Example:
-      https://your-project.pages.dev/qr.html
-
-      It will automatically generate:
-
-      Public:
-      https://your-project.pages.dev/index.html
-
-      Admin:
-      https://your-project.pages.dev/admin.html
-    */
-
-    const currentUrl =
-      window.location.href.substring(
-        0,
-        window.location.href.lastIndexOf("/") + 1
-      );
-
-
-    const publicUrl =
-      currentUrl + "index.html";
-
-    const adminUrl =
-      currentUrl + "admin.html";
-
-
-    // Display links
-    document.getElementById("publicLink").href =
-      publicUrl;
-
-    document.getElementById("publicLink").textContent =
-      publicUrl;
-
-
-    document.getElementById("adminLink").href =
-      adminUrl;
-
-    document.getElementById("adminLink").textContent =
-      adminUrl;
-
-
-    // Generate public QR
-    new QRCode(
-      document.getElementById("publicQr"),
-      {
-        text: publicUrl,
-        width: 220,
-        height: 220,
-        correctLevel: QRCode.CorrectLevel.H
-      }
-    );
-
-
-    // Generate admin QR
-    new QRCode(
-      document.getElementById("adminQr"),
-      {
-        text: adminUrl,
-        width: 220,
-        height: 220,
-        correctLevel: QRCode.CorrectLevel.H
-      }
-    );
-
+    const keyInput = document.getElementById("keyInput");
+    function renderAdminQR() {
+      const key = keyInput.value.trim();
+      const adminUrlEl = document.getElementById("adminUrl");
+      document.getElementById("qrAdmin").innerHTML = "";
+      if (!key) { adminUrlEl.textContent = "Entrez la clé ci-dessus..."; return; }
+      const adminUrl = base + "admin.html?key=" + encodeURIComponent(key);
+      adminUrlEl.textContent = adminUrl;
+      new QRCode(document.getElementById("qrAdmin"), { text: adminUrl, width: 190, height: 190 });
+    }
+    keyInput.addEventListener("input", renderAdminQR);
   </script>
-
 </body>
 </html>
