@@ -1,1010 +1,377 @@
-/* =========================================================
-   TABLEAU DES MÉDAILLES
-   Main stylesheet
-   ========================================================= */
+/* ============================================================
+   Tableau des Médailles — Factory Medal Board
+   Design language: matches the client's original Excel template
+   Dark green headers, light grey cells, gold medal icons.
+   ============================================================ */
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
 :root {
-  --bg: #f4f6f8;
-  --card: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --primary: #1f2937;
-  --primary-light: #374151;
-  --success: #16a34a;
-  --danger: #dc2626;
-  --gold: #d4a017;
-  --silver: #8b949e;
-  --bronze: #a65f2b;
-  --shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  --radius: 16px;
+  --green: #2E7A54;
+  --green-dark: #245F42;
+  --grey-cell: #EFEFED;
+  --grey-cell-alt: #F6F6F5;
+  --border: #FFFFFF;
+  --border-cell: #DADAD6;
+  --text: #1E2320;
+  --text-dim: #5B615C;
+  --gold: #E3B23C;
+  --radius: 10px;
+  --shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
 
-html {
-  scroll-behavior: smooth;
-}
+* { box-sizing: border-box; }
 
-body {
-  min-height: 100vh;
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-  background: var(--bg);
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
   color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
 }
 
-/* =========================================================
-   COMMON
-   ========================================================= */
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* =========================================================
-   HEADER
-   ========================================================= */
-
-.top-header {
-  width: 100%;
-  background: var(--primary);
-  color: white;
-  box-shadow: var(--shadow);
-}
-
-.header-content {
-  width: min(1400px, 94%);
+.wrap {
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 28px 0;
+  padding: 16px 12px 50px;
+}
+
+/* ---------- top bar: language switch + live status ---------- */
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-}
-
-.header-content h1 {
-  font-size: clamp(24px, 4vw, 42px);
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.header-content p {
-  margin-top: 7px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 15px;
-}
-
-/* =========================================================
-   LANGUAGE SWITCHER
-   ========================================================= */
-
-.language-switcher {
-  display: flex;
-  gap: 7px;
-  flex-shrink: 0;
-}
-
-.language-switcher button {
-  min-width: 48px;
-  padding: 9px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 9px;
-  background: transparent;
-  color: white;
-  transition: 0.2s ease;
-}
-
-.language-switcher button:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.language-switcher button.active {
-  background: white;
-  color: var(--primary);
-  border-color: white;
-  font-weight: 700;
-}
-
-/* =========================================================
-   MAIN CONTAINER
-   ========================================================= */
-
-.main-container {
-  width: min(1400px, 94%);
-  margin: 0 auto;
-  padding: 30px 0 50px;
-}
-
-/* =========================================================
-   WEEK
-   ========================================================= */
-
-.week-section {
-  margin-bottom: 24px;
-}
-
-.week-info {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
   gap: 10px;
-  text-align: center;
+  margin-bottom: 14px;
 }
 
-.week-number {
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  font-weight: 800;
-}
-
-.week-dates {
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  box-shadow: var(--shadow);
-}
-
-/* =========================================================
-   RANKING
-   ========================================================= */
-
-.ranking-section {
-  margin-bottom: 28px;
-}
-
-.ranking-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.ranking-title {
-  padding: 18px 22px;
-  font-size: 20px;
-  font-weight: 800;
-  border-bottom: 1px solid var(--border);
-}
-
-.ranking-list {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.ranking-item {
-  min-height: 75px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 15px 20px;
-  border-right: 1px solid var(--border);
-}
-
-.ranking-item:last-child {
-  border-right: none;
-}
-
-.ranking-position {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #eef0f2;
-  font-weight: 800;
-}
-
-.ranking-team {
-  flex: 1;
-  font-weight: 700;
-}
-
-.ranking-score {
-  font-size: 20px;
-  font-weight: 900;
-}
-
-/* =========================================================
-   ZONES
-   ========================================================= */
-
-.zones-section {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 22px;
-  margin-bottom: 28px;
-}
-
-.zone-card,
-.criteria-card,
-.team-week-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.zone-title {
-  padding: 18px 20px;
-  background: var(--primary);
-  color: white;
-  font-size: 20px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.zone-table {
-  width: 100%;
-}
-
-.zone-header,
-.zone-row {
-  display: grid;
-  grid-template-columns:
-    0.8fr
-    1fr
-    1fr
-    1fr
-    0.8fr;
-  align-items: center;
-}
-
-.zone-header {
-  padding: 12px 10px;
-  background: #f8fafc;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
+.status-line {
   font-size: 12px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.zone-row {
-  min-height: 65px;
-  padding: 10px;
-  border-bottom: 1px solid var(--border);
-  text-align: center;
-}
-
-.zone-row:last-child {
-  border-bottom: none;
-}
-
-.team-name {
-  font-weight: 800;
-}
-
-.medal-value {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  font-weight: 700;
-}
-
-.medal-icon {
-  font-size: 17px;
-}
-
-.zone-total {
-  font-size: 18px;
-  font-weight: 900;
-}
-
-/* =========================================================
-   CRITERIA
-   ========================================================= */
-
-.criteria-section {
-  margin-bottom: 28px;
-}
-
-.criteria-title {
-  padding: 18px 22px;
-  font-size: 20px;
-  font-weight: 800;
-  border-bottom: 1px solid var(--border);
-}
-
-.criteria-table {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.criteria-header,
-.criteria-row {
-  min-width: 650px;
-  display: grid;
-  grid-template-columns:
-    0.8fr
-    1fr
-    1.4fr
-    1fr
-    1.2fr
-    0.8fr;
-  align-items: center;
-  text-align: center;
-}
-
-.criteria-header {
-  padding: 14px 12px;
-  background: #f8fafc;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.criteria-row {
-  min-height: 65px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.criteria-row:last-child {
-  border-bottom: none;
-}
-
-.criteria-value {
-  font-weight: 700;
-}
-
-.criteria-total {
-  font-size: 18px;
-  font-weight: 900;
-}
-
-/* =========================================================
-   TEAM OF THE WEEK
-   ========================================================= */
-
-.team-week-section {
-  margin-bottom: 30px;
-}
-
-.team-week-title {
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.team-week-winner {
-  padding: 30px 20px 15px;
-  text-align: center;
-  font-size: 34px;
-  font-weight: 900;
-}
-
-.team-week-reward {
-  padding: 0 20px 28px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.team-week-empty {
-  padding: 30px;
-  text-align: center;
-  color: var(--muted);
-}
-
-/* =========================================================
-   FOOTER
-   ========================================================= */
-
-.footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 18px 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-/* =========================================================
-   LOADING
-   ========================================================= */
-
-.loading-screen {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 18px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.loading-spinner {
-  width: 42px;
-  height: 42px;
-  border: 4px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* =========================================================
-   ERROR
-   ========================================================= */
-
-.error-screen {
-  width: min(600px, 90%);
-  min-height: 100vh;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-}
-
-.error-screen h2 {
-  font-size: 45px;
-}
-
-.error-screen p {
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.error-screen small {
-  max-width: 100%;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-
-/* =========================================================
-   QR PAGE
-   ========================================================= */
-
-.qr-page {
-  min-height: 100vh;
-  padding: 40px 20px;
-}
-
-.qr-container {
-  width: min(1000px, 100%);
-  margin: 0 auto;
-}
-
-.qr-container > h1 {
-  text-align: center;
-  font-size: clamp(28px, 5vw, 42px);
-}
-
-.qr-subtitle {
-  margin: 10px 0 35px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.qr-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 25px;
-}
-
-.qr-card {
-  padding: 30px 20px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  text-align: center;
-}
-
-.qr-card h2 {
-  margin-bottom: 10px;
-}
-
-.qr-card p {
-  margin-bottom: 25px;
-  color: var(--muted);
-}
-
-.qr-code {
-  min-height: 220px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 22px;
-}
-
-.qr-code img {
-  max-width: 100%;
-  height: auto;
-}
-
-.qr-link {
-  overflow-wrap: anywhere;
-}
-
-.qr-link a {
-  display: inline-block;
-  padding: 11px 16px;
-  border-radius: 9px;
-  background: var(--primary);
-  color: white;
-  font-weight: 700;
-  transition: 0.2s ease;
-}
-
-.qr-link a:hover {
-  background: var(--primary-light);
-}
-
-/* =========================================================
-   ADMIN PAGE
-   ========================================================= */
-
-.admin-page {
-  min-height: 100vh;
-  padding: 30px 20px 60px;
-}
-
-.admin-container {
-  width: min(1250px, 100%);
-  margin: 0 auto;
-}
-
-.admin-header {
-  margin-bottom: 25px;
-  padding: 25px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.admin-header h1 {
-  font-size: clamp(25px, 4vw, 38px);
-}
-
-.admin-header p {
-  margin-top: 7px;
-  color: var(--muted);
-}
-
-/* =========================================================
-   LOGIN
-   ========================================================= */
-
-.login-container {
-  width: min(460px, 100%);
-  margin: 80px auto;
-  padding: 30px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.login-container h1 {
-  margin-bottom: 8px;
-  text-align: center;
-}
-
-.login-container p {
-  margin-bottom: 25px;
-  color: var(--muted);
-  text-align: center;
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.login-form label {
-  font-weight: 700;
-}
-
-.login-form input {
-  width: 100%;
-  padding: 13px 14px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  outline: none;
-}
-
-.login-form input:focus {
-  border-color: var(--primary);
-}
-
-/* =========================================================
-   ADMIN CARDS
-   ========================================================= */
-
-.admin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 22px;
-}
-
-.admin-card {
-  padding: 22px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.admin-card.full-width {
-  grid-column: 1 / -1;
-}
-
-.admin-card h2 {
-  margin-bottom: 18px;
-}
-
-.admin-row {
+  color: var(--text-dim);
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 6px;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(46,122,84,0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(46,122,84,0); }
+  100% { box-shadow: 0 0 0 0 rgba(46,122,84,0); }
 }
 
-.admin-row:last-child {
-  margin-bottom: 0;
-}
-
-.admin-row label {
-  min-width: 120px;
-  font-weight: 700;
-}
-
-.admin-row input,
-.admin-row select,
-.admin-row textarea {
-  flex: 1;
-  width: 100%;
-  padding: 11px 12px;
-  border: 1px solid var(--border);
+/* language settings gear */
+.lang-switch { position: relative; }
+.gear-btn {
+  background: #fff;
+  border: 1px solid var(--border-cell);
   border-radius: 8px;
-  outline: none;
-  background: white;
+  width: 36px; height: 36px;
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: var(--shadow);
 }
-
-.admin-row textarea {
-  min-height: 90px;
-  resize: vertical;
+.lang-menu {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border-cell);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: none;
+  z-index: 20;
+  min-width: 140px;
 }
-
-.admin-row input:focus,
-.admin-row select:focus,
-.admin-row textarea:focus {
-  border-color: var(--primary);
+.lang-menu.open { display: block; }
+.lang-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #F0F0F0;
 }
+.lang-menu button:last-child { border-bottom: none; }
+.lang-menu button:hover { background: var(--grey-cell); }
+.lang-menu button.active { color: var(--green); font-weight: 700; }
 
-/* =========================================================
-   ADMIN BUTTONS
-   ========================================================= */
+/* ---------- save bar (admin) ---------- */
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid var(--border-cell);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.save-status { font-size: 13px; font-weight: 600; }
+.save-status.saved { color: var(--green); }
+.save-status.unsaved { color: #C9862B; animation: blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.5;} }
 
 .btn {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 9px 16px;
   border: none;
-  border-radius: 9px;
-  font-weight: 800;
-  transition: 0.2s ease;
+  border-radius: 7px;
+  padding: 10px 18px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  background: var(--green);
+  color: #fff;
+  transition: transform .08s ease, background .15s ease;
+}
+.btn:hover { background: var(--green-dark); }
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- medal table ---------- */
+.medal-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-cell);
 }
 
-.btn-primary {
-  background: var(--primary);
-  color: white;
+table.medal-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 980px;
+  background: #fff;
 }
 
-.btn-primary:hover {
-  background: var(--primary-light);
+.medal-table th, .medal-table td {
+  border: 1px solid var(--border);
+  padding: 6px 4px;
+  text-align: center;
+  vertical-align: middle;
 }
 
-.btn-success {
-  background: var(--success);
-  color: white;
+.medal-table thead th {
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
 }
 
-.btn-danger {
-  background: var(--danger);
-  color: white;
+.medal-table thead tr.zone-row th {
+  font-weight: 700;
+  font-size: 13px;
+  padding: 9px 4px;
 }
 
-.btn-secondary {
-  background: #eef0f2;
+.medal-table thead tr.team-row th {
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 68px;
+}
+
+.week-cell {
+  text-align: left !important;
+  font-size: 12px;
+  line-height: 1.5;
+  min-width: 150px;
+  padding: 6px 10px !important;
+}
+.week-cell input {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.6);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  width: 64px;
+  padding: 1px 2px;
+}
+.week-cell input::placeholder { color: rgba(255,255,255,0.7); }
+
+.crit-cell {
+  text-align: left !important;
+  background: #fff;
+  padding: 8px 10px !important;
+  min-width: 150px;
+}
+.crit-title { color: var(--green); font-weight: 700; font-size: 13px; display: block; }
+.crit-sub { color: var(--text-dim); font-size: 11px; display: block; margin-top: 2px; }
+
+.medal-table tbody tr:nth-child(odd) td.data-cell { background: var(--grey-cell); }
+.medal-table tbody tr:nth-child(even) td.data-cell { background: var(--grey-cell-alt); }
+
+td.data-cell {
+  font-size: 13px;
+  height: auto;
+  min-height: 34px;
+  padding: 4px 2px;
+  position: relative;
+}
+td.data-cell.editable { cursor: default; user-select: none; }
+
+.medal-cell-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.mstep {
+  border: none;
+  background: rgba(0,0,0,0.07);
+  color: var(--text);
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+}
+.mstep:active { background: rgba(0,0,0,0.18); transform: scale(0.9); }
+.mstep.plus { color: var(--green-dark); }
+.mstep.minus { color: #B23A3A; }
+.mstep:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.cell-clear {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  font-size: 9px;
+  color: #A5A9A5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px 3px;
+  line-height: 1;
+}
+.cell-clear:hover { color: #B23A3A; }
+
+.medal-icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  min-width: 16px;
+}
+.medal-count-badge {
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text);
 }
 
-.btn-secondary:hover {
-  background: #e2e5e8;
+/* ---------- inline editable names (admin only) ---------- */
+.name-edit-inline {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed rgba(255,255,255,0.55);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  width: 100%;
+  padding: 2px 0;
+}
+.name-edit-inline::placeholder { color: rgba(255,255,255,0.7); }
+.name-edit-inline.small { font-size: 11px; font-weight: 600; }
+.name-edit-inline:focus { outline: none; border-bottom-color: #fff; }
+
+.crit-cell input.crit-title-input {
+  background: transparent; border: none; border-bottom: 1px dashed var(--border-cell);
+  color: var(--green); font-weight: 700; font-size: 13px; width: 100%; padding: 2px 0; margin-bottom: 3px;
+  font-family: inherit;
+}
+.crit-cell input.crit-sub-input {
+  background: transparent; border: none; border-bottom: 1px dashed var(--border-cell);
+  color: var(--text-dim); font-size: 11px; width: 100%; padding: 1px 0; font-family: inherit;
+}
+.crit-cell input:focus { outline: none; border-bottom-color: var(--green); }
+
+.btn.danger { background: #B23A3A; }
+.btn.danger:hover { background: #8F2E2E; }
+
+tr.total-row th, tr.total-row td {
+  background: var(--green-dark) !important;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
 }
 
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+/* ---------- team of the week ---------- */
+.tow-panel {
+  margin-top: 16px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-cell);
 }
-
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+.tow-head {
+  background: var(--green);
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px;
 }
-
-/* =========================================================
-   MEDAL CONTROLS
-   ========================================================= */
-
-.medal-controls {
+.tow-body {
+  background: #fff;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 14px 16px;
 }
+.tow-field { display: flex; align-items: center; gap: 6px; font-size: 13px; flex-wrap: wrap; }
+.tow-field label { font-weight: 700; color: var(--text); white-space: nowrap; }
+.tow-field select, .tow-field input {
+  border: none;
+  border-bottom: 1px solid var(--border-cell);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 3px 2px;
+  background: transparent;
+  flex: 1;
+  min-width: 80px;
+}
+.tow-field .static-value { font-weight: 600; }
 
-.medal-control {
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+/* ---------- legend / footer ---------- */
+.legend-text {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
   text-align: center;
 }
 
-.medal-control-title {
-  margin-bottom: 10px;
-  font-weight: 800;
+/* ---------- gate (wrong / missing admin key) ---------- */
+.gate {
+  background: #fff;
+  border: 1px solid var(--border-cell);
+  border-radius: var(--radius);
+  padding: 40px 24px;
+  text-align: center;
+  box-shadow: var(--shadow);
 }
+.gate .big { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 22px; color: #C0392B; display: block; margin-bottom: 8px; }
+.gate p { color: var(--text-dim); font-size: 14px; }
 
-.medal-control-value {
-  margin-bottom: 12px;
-  font-size: 25px;
-  font-weight: 900;
-}
-
-.medal-control-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 7px;
-}
-
-.medal-control-buttons button {
-  width: 38px;
-  height: 38px;
-  border: none;
-  border-radius: 8px;
-  font-size: 20px;
-  font-weight: 900;
-}
-
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-.status-message {
-  margin-top: 15px;
-  padding: 12px 14px;
-  border-radius: 9px;
-  background: #f3f4f6;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.status-message.success {
-  background: #ecfdf5;
-  color: #166534;
-}
-
-.status-message.error {
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-/* =========================================================
-   RESPONSIVE - TABLET
-   ========================================================= */
-
-@media (max-width: 1000px) {
-
-  .zones-section {
-    grid-template-columns: 1fr;
-  }
-
-  .ranking-list {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .ranking-item:nth-child(2) {
-    border-right: none;
-  }
-
-  .ranking-item:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--border);
-  }
-
-  .admin-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-card.full-width {
-    grid-column: auto;
-  }
-
-}
-
-/* =========================================================
-   RESPONSIVE - MOBILE
-   ========================================================= */
-
-@media (max-width: 650px) {
-
-  .header-content {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .language-switcher {
-    margin-top: 5px;
-  }
-
-  .main-container {
-    width: 95%;
-    padding-top: 20px;
-  }
-
-  .ranking-list {
-    grid-template-columns: 1fr;
-  }
-
-  .ranking-item {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .ranking-item:last-child {
-    border-bottom: none;
-  }
-
-  .zone-header {
-    font-size: 10px;
-  }
-
-  .zone-row {
-    min-height: 58px;
-    padding: 7px 4px;
-    font-size: 13px;
-  }
-
-  .medal-icon {
-    font-size: 14px;
-  }
-
-  .medal-value {
-    gap: 2px;
-  }
-
-  .zone-total {
-    font-size: 16px;
-  }
-
-  .team-week-winner {
-    font-size: 27px;
-  }
-
-  .qr-page {
-    padding: 25px 15px;
-  }
-
-  .qr-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .admin-page {
-    padding: 20px 12px 40px;
-  }
-
-  .admin-header,
-  .admin-card,
-  .login-container {
-    padding: 18px;
-  }
-
-  .admin-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .admin-row label {
-    min-width: auto;
-  }
-
-  .medal-controls {
-    grid-template-columns: 1fr;
-  }
-
-  .button-row {
-    flex-direction: column;
-  }
-
-  .button-row .btn {
-    width: 100%;
-  }
-
-}
-
-/* =========================================================
-   SMALL MOBILE
-   ========================================================= */
-
-@media (max-width: 400px) {
-
-  .header-content h1 {
-    font-size: 23px;
-  }
-
-  .zone-title {
-    font-size: 17px;
-  }
-
-  .zone-header,
-  .zone-row {
-    grid-template-columns:
-      0.75fr
-      1fr
-      1fr
-      1fr
-      0.75fr;
-  }
-
-  .zone-row {
-    font-size: 12px;
-  }
-
-  .week-number,
-  .week-dates {
-    width: 100%;
-  }
-
+@media (max-width: 480px) {
+  .wrap { padding: 12px 8px 40px; }
+  .medal-table thead tr.team-row th { min-width: 58px; font-size: 11px; }
 }
