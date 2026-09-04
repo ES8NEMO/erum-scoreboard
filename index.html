@@ -1,776 +1,244 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tableau des Médailles</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Tableau des Médailles</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="status-line"><span class="live-dot"></span><span id="updated">—</span></span>
+      <div class="lang-switch">
+        <button class="gear-btn" id="gearBtn" title="Language / Langue / Idioma">⚙️</button>
+        <div class="lang-menu" id="langMenu">
+          <button data-lang="fr">🇫🇷 Français</button>
+          <button data-lang="en">🇬🇧 English</button>
+          <button data-lang="es">🇪🇸 Español</button>
+        </div>
+      </div>
+    </div>
 
-  <link rel="stylesheet" href="./style.css" />
+    <div class="medal-wrap">
+      <table class="medal-table" id="medalTable"></table>
+    </div>
+
+    <div class="tow-panel">
+      <div class="tow-head" data-i18n="equipeSemaine"></div>
+      <div class="tow-body">
+        <div class="tow-field"><label data-i18n="zone"></label><span class="static-value" id="towZone">—</span></div>
+        <div class="tow-field"><label data-i18n="equipe"></label><span class="static-value" id="towEquipe">—</span></div>
+        <div class="tow-field"><label data-i18n="total"></label><span class="static-value" id="towTotal">—</span></div>
+        <div class="tow-field"><label data-i18n="recompense"></label><span class="static-value" id="towReward">—</span></div>
+      </div>
+    </div>
+
+    <div class="legend-text" id="legendText"></div>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      initializeFirestore,
-      persistentLocalCache,
-      persistentSingleTabManager,
-      doc,
-      onSnapshot
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-
+    import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
     import { firebaseConfig, DOC_PATH } from "./firebase-config.js";
 
-    const app = initializeApp(firebaseConfig);
+    // ---------- fixed structure (matches the client's template) ----------
+    const ZONES = ["VARIABLE", "BMB", "ENGEL"];
+    const TEAM_IDS = ["A", "B", "C", "D"];
+    const CRITERIA = ["trs", "valid", "presence", "org"];
+    const MAX_MEDALS = 5;
 
-    const db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager()
-      })
-    });
-
-    const leaderboardRef = doc(
-      db,
-      DOC_PATH.collection,
-      DOC_PATH.doc
-    );
-
-    const translations = {
+    const T = {
       fr: {
-        title: "TABLEAU DES MÉDAILLES",
-        subtitle: "Performance des équipes",
-        week: "SEMAINE",
-        team: "ÉQUIPE",
-        total: "TOTAL",
-        variable: "VARIABLE",
-        bmb: "BMB",
-        engel: "ENGEL",
-        trs: "TRS",
-        valid: "Qualité / Validité",
-        presence: "Présence",
-        org: "Organisation",
-        teamOfWeek: "ÉQUIPE DE LA SEMAINE",
-        reward: "Récompense",
-        noData: "Aucune donnée disponible",
-        loading: "Chargement...",
-        lastUpdate: "Dernière mise à jour",
-        monday: "Lundi",
-        sunday: "Dimanche",
-        gold: "Or",
-        silver: "Argent",
-        bronze: "Bronze"
+        semaine: "SEMAINE", du: "DU", au: "AU", criteres: "CRITÈRES",
+        equipe: "Équipe", totalMedailles: "TOTAL MÉDAILLES",
+        equipeSemaine: "ÉQUIPE DE LA SEMAINE", zone: "Zone :", recompense: "Récompense :",
+        total: "Total :", medaillesWord: "médailles",
+        crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Plus de 75 % = 1 médaille",
+        crit_valid_t: "Validations machines", crit_valid_s: "Validation réussie = 1 médaille",
+        crit_presence_t: "Présence / Assiduité", crit_presence_s: "Moins de 5 absences par équipe = 1 médaille",
+        crit_org_t: "5S & Organisation", crit_org_s: "Zone conforme + 0 fiche AC = 1 médaille",
+        legend: "Légende : chaque médaille est ajoutée par l'administrateur. Le total se calcule automatiquement.",
+        updated: "Mis à jour : "
       },
-
       en: {
-        title: "MEDAL BOARD",
-        subtitle: "Team performance",
-        week: "WEEK",
-        team: "TEAM",
-        total: "TOTAL",
-        variable: "VARIABLE",
-        bmb: "BMB",
-        engel: "ENGEL",
-        trs: "TRS",
-        valid: "Quality / Validity",
-        presence: "Attendance",
-        org: "Organization",
-        teamOfWeek: "TEAM OF THE WEEK",
-        reward: "Reward",
-        noData: "No data available",
-        loading: "Loading...",
-        lastUpdate: "Last update",
-        monday: "Monday",
-        sunday: "Sunday",
-        gold: "Gold",
-        silver: "Silver",
-        bronze: "Bronze"
+        semaine: "WEEK", du: "FROM", au: "TO", criteres: "CRITERIA",
+        equipe: "Team", totalMedailles: "TOTAL MEDALS",
+        equipeSemaine: "TEAM OF THE WEEK", zone: "Zone:", recompense: "Reward:",
+        total: "Total:", medaillesWord: "medals",
+        crit_trs_t: "OEE ≥ 75 %", crit_trs_s: "Over 75 % = 1 medal",
+        crit_valid_t: "Machine validations", crit_valid_s: "Successful validation = 1 medal",
+        crit_presence_t: "Attendance", crit_presence_s: "Fewer than 5 absences per team = 1 medal",
+        crit_org_t: "5S & Organization", crit_org_s: "Compliant area + 0 non-conformity = 1 medal",
+        legend: "Legend: each medal is added by the administrator. The total is calculated automatically.",
+        updated: "Last updated: "
       },
-
       es: {
-        title: "TABLERO DE MEDALLAS",
-        subtitle: "Rendimiento de los equipos",
-        week: "SEMANA",
-        team: "EQUIPO",
-        total: "TOTAL",
-        variable: "VARIABLE",
-        bmb: "BMB",
-        engel: "ENGEL",
-        trs: "TRS",
-        valid: "Calidad / Validez",
-        presence: "Asistencia",
-        org: "Organización",
-        teamOfWeek: "EQUIPO DE LA SEMANA",
-        reward: "Recompensa",
-        noData: "No hay datos disponibles",
-        loading: "Cargando...",
-        lastUpdate: "Última actualización",
-        monday: "Lunes",
-        sunday: "Domingo",
-        gold: "Oro",
-        silver: "Plata",
-        bronze: "Bronce"
+        semaine: "SEMANA", du: "DEL", au: "AL", criteres: "CRITERIOS",
+        equipe: "Equipo", totalMedailles: "TOTAL MEDALLAS",
+        equipeSemaine: "EQUIPO DE LA SEMANA", zone: "Zona:", recompense: "Recompensa:",
+        total: "Total:", medaillesWord: "medallas",
+        crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Más de 75 % = 1 medalla",
+        crit_valid_t: "Validaciones de máquina", crit_valid_s: "Validación exitosa = 1 medalla",
+        crit_presence_t: "Asistencia", crit_presence_s: "Menos de 5 ausencias por equipo = 1 medalla",
+        crit_org_t: "5S y Organización", crit_org_s: "Zona conforme + 0 ficha AC = 1 medalla",
+        legend: "Leyenda: cada medalla la añade el administrador. El total se calcula automáticamente.",
+        updated: "Última actualización: "
       }
     };
 
-    let currentLanguage = "fr";
-    let currentData = null;
+    let lang = localStorage.getItem("lang") || "fr";
 
-    const teams = ["A", "B", "C", "D"];
-
-    const zones = [
-      {
-        id: "VARIABLE",
-        defaultName: "VARIABLE"
-      },
-      {
-        id: "BMB",
-        defaultName: "BMB"
-      },
-      {
-        id: "ENGEL",
-        defaultName: "ENGEL"
-      }
-    ];
-
-    const criteria = [
-      {
-        id: "trs",
-        defaultName: "TRS"
-      },
-      {
-        id: "valid",
-        defaultName: "Qualité / Validité"
-      },
-      {
-        id: "presence",
-        defaultName: "Présence"
-      },
-      {
-        id: "org",
-        defaultName: "Organisation"
-      }
-    ];
-
-    function t(key) {
-      return translations[currentLanguage]?.[key] || translations.fr[key] || key;
+    const gearBtn = document.getElementById("gearBtn");
+    const langMenu = document.getElementById("langMenu");
+    gearBtn.addEventListener("click", () => langMenu.classList.toggle("open"));
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".lang-switch")) langMenu.classList.remove("open");
+    });
+    langMenu.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        lang = btn.dataset.lang;
+        localStorage.setItem("lang", lang);
+        langMenu.classList.remove("open");
+        applyLangHighlight();
+        renderStatic();
+        if (lastDoc) renderData(lastDoc);
+      });
+    });
+    function applyLangHighlight() {
+      langMenu.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
     }
 
-    function getValue(obj, path, fallback = 0) {
-      const parts = path.split(".");
-      let value = obj;
-
-      for (const part of parts) {
-        if (value == null) return fallback;
-        value = value[part];
-      }
-
-      return value ?? fallback;
+    function medalIcons(count) {
+      if (!count) return "";
+      if (count <= 3) return "🏅".repeat(count);
+      return `<span class="medal-count-badge">🏅×${count}</span>`;
     }
 
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    // ---------- build the static table skeleton ----------
+    function renderStatic() {
+      const t = T[lang];
+      const table = document.getElementById("medalTable");
+
+      let thead = `<thead>
+        <tr class="zone-row">
+          <th class="week-cell" rowspan="1">
+            ${t.semaine} (<span id="weekNum">—</span>)<br/>
+            ${t.du}: <span id="weekFrom">—</span><br/>
+            ${t.au}: <span id="weekTo">—</span>
+          </th>
+          ${ZONES.map(z => `<th colspan="${TEAM_IDS.length}" data-zonelabel="${z}">${z}</th>`).join("")}
+        </tr>
+        <tr class="team-row">
+          <th>${t.criteres}</th>
+          ${ZONES.map(z => TEAM_IDS.map(id => `<th data-teamlabel="${z}_${id}">${t.equipe} ${id}</th>`).join("")).join("")}
+        </tr>
+      </thead>`;
+
+      let tbody = "<tbody>";
+      CRITERIA.forEach(critId => {
+        tbody += `<tr>
+          <td class="crit-cell">
+            <span class="crit-title" data-crittitle="${critId}">${t["crit_" + critId + "_t"]}</span>
+            <span class="crit-sub" data-critsub="${critId}">${t["crit_" + critId + "_s"]}</span>
+          </td>
+          ${ZONES.map(zone => TEAM_IDS.map(team => {
+            const key = `${zone}_${team}_${critId}`;
+            return `<td class="data-cell" data-key="${key}"></td>`;
+          }).join("")).join("")}
+        </tr>`;
+      });
+      tbody += `<tr class="total-row">
+        <th>${t.totalMedailles}</th>
+        ${ZONES.map(zone => TEAM_IDS.map(team => `<td data-total="${zone}_${team}">0</td>`).join("")).join("")}
+      </tr></tbody>`;
+
+      table.innerHTML = thead + tbody;
+
+      document.getElementById("legendText").textContent = t.legend;
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (t[key] !== undefined) el.textContent = t[key];
+      });
+      applyLangHighlight();
     }
 
-    function normalizeData(data) {
-      const normalized = data || {};
+    // ---------- fill in live data ----------
+    let lastDoc = null;
+    function renderData(data) {
+      lastDoc = data;
+      const t = T[lang];
+      const week = data.week || {};
+      document.getElementById("weekNum").textContent = week.number || "—";
+      document.getElementById("weekFrom").textContent = week.from || "—";
+      document.getElementById("weekTo").textContent = week.to || "—";
 
-      if (!normalized.teams) {
-        normalized.teams = {};
-      }
-
-      teams.forEach(team => {
-        if (!normalized.teams[team]) {
-          normalized.teams[team] = {};
-        }
-
-        if (!normalized.teams[team].zones) {
-          normalized.teams[team].zones = {};
-        }
-
-        zones.forEach(zone => {
-          if (!normalized.teams[team].zones[zone.id]) {
-            normalized.teams[team].zones[zone.id] = {
-              gold: 0,
-              silver: 0,
-              bronze: 0
-            };
-          }
-        });
-
-        if (!normalized.teams[team].criteria) {
-          normalized.teams[team].criteria = {};
-        }
-
-        criteria.forEach(criterion => {
-          if (
-            typeof normalized.teams[team].criteria[criterion.id] !==
-            "number"
-          ) {
-            normalized.teams[team].criteria[criterion.id] = 0;
-          }
-        });
+      // custom names override the translated defaults (textContent is XSS-safe either way)
+      const cl = data.customLabels || {};
+      ZONES.forEach(z => {
+        const el = document.querySelector(`[data-zonelabel="${z}"]`);
+        if (el) el.textContent = (cl.zones && cl.zones[z]) || z;
+      });
+      ZONES.forEach(zone => TEAM_IDS.forEach(id => {
+        const key = `${zone}_${id}`;
+        const el = document.querySelector(`[data-teamlabel="${key}"]`);
+        if (el) el.textContent = (cl.teams && cl.teams[key]) || `${t.equipe} ${id}`;
+      }));
+      CRITERIA.forEach(critId => {
+        const custom = cl.criteria && cl.criteria[critId];
+        const titleEl = document.querySelector(`[data-crittitle="${critId}"]`);
+        const subEl = document.querySelector(`[data-critsub="${critId}"]`);
+        if (titleEl) titleEl.textContent = (custom && custom.title) || t["crit_" + critId + "_t"];
+        if (subEl) subEl.textContent = (custom && custom.sub) || t["crit_" + critId + "_s"];
       });
 
-      if (!normalized.labels) {
-        normalized.labels = {};
-      }
-
-      if (!normalized.week) {
-        normalized.week = {};
-      }
-
-      if (!normalized.teamOfWeek) {
-        normalized.teamOfWeek = {};
-      }
-
-      return normalized;
-    }
-
-    function medalTotal(teamData) {
-      let total = 0;
-
-      zones.forEach(zone => {
-        total += Number(
-          getValue(teamData, `zones.${zone.id}.gold`, 0)
-        );
-
-        total += Number(
-          getValue(teamData, `zones.${zone.id}.silver`, 0)
-        );
-
-        total += Number(
-          getValue(teamData, `zones.${zone.id}.bronze`, 0)
-        );
-      });
-
-      return total;
-    }
-
-    function getTeamRankings(data) {
-      return teams
-        .map(team => ({
-          team,
-          total: medalTotal(data.teams?.[team] || {})
-        }))
-        .sort((a, b) => {
-          if (b.total !== a.total) {
-            return b.total - a.total;
-          }
-
-          return a.team.localeCompare(b.team);
+      const medals = data.medals || {};
+      ZONES.forEach(zone => TEAM_IDS.forEach(team => {
+        let total = 0;
+        CRITERIA.forEach(critId => {
+          const key = `${zone}_${team}_${critId}`;
+          const count = medals[key] || 0;
+          total += count;
+          const cell = document.querySelector(`[data-key="${key}"]`);
+          if (cell) cell.innerHTML = `<span class="medal-icons">${medalIcons(count)}</span>`;
         });
-    }
+        const totalCell = document.querySelector(`[data-total="${zone}_${team}"]`);
+        if (totalCell) totalCell.textContent = total;
+      }));
 
-    function medalIcon(type) {
-      if (type === "gold") return "🥇";
-      if (type === "silver") return "🥈";
-      if (type === "bronze") return "🥉";
-      return "";
-    }
+      const tow = data.teamOfWeek || {};
+      const towTeamKey = tow.zone && tow.team ? `${tow.zone}_${tow.team}` : null;
+      document.getElementById("towZone").textContent = tow.zone ? ((cl.zones && cl.zones[tow.zone]) || tow.zone) : "—";
+      document.getElementById("towEquipe").textContent = towTeamKey
+        ? ((cl.teams && cl.teams[towTeamKey]) || `${t.equipe} ${tow.team}`)
+        : "—";
+      document.getElementById("towTotal").textContent = tow.zone && tow.team
+        ? `${(() => {
+            let s = 0; CRITERIA.forEach(c => s += (medals[`${tow.zone}_${tow.team}_${c}`] || 0)); return s;
+          })()} ${t.medaillesWord}`
+        : "—";
+      document.getElementById("towReward").textContent = tow.reward || "—";
 
-    function renderMedalCell(teamData, zoneId, medalType) {
-      const value = Number(
-        getValue(
-          teamData,
-          `zones.${zoneId}.${medalType}`,
-          0
-        )
-      );
-
-      return `
-        <div class="medal-value">
-          <span class="medal-icon">${medalIcon(medalType)}</span>
-          <span>${value}</span>
-        </div>
-      `;
-    }
-
-    function renderZoneCard(zone, data) {
-      const label =
-        data.labels?.zones?.[zone.id] ||
-        zone.defaultName;
-
-      return `
-        <div class="zone-card">
-          <div class="zone-title">
-            ${escapeHtml(label)}
-          </div>
-
-          <div class="zone-table">
-            <div class="zone-header">
-              <div>${t("team")}</div>
-              <div>${t("gold")}</div>
-              <div>${t("silver")}</div>
-              <div>${t("bronze")}</div>
-              <div>${t("total")}</div>
-            </div>
-
-            ${teams.map(team => {
-              const teamData = data.teams?.[team] || {};
-
-              const gold = Number(
-                getValue(
-                  teamData,
-                  `zones.${zone.id}.gold`,
-                  0
-                )
-              );
-
-              const silver = Number(
-                getValue(
-                  teamData,
-                  `zones.${zone.id}.silver`,
-                  0
-                )
-              );
-
-              const bronze = Number(
-                getValue(
-                  teamData,
-                  `zones.${zone.id}.bronze`,
-                  0
-                )
-              );
-
-              const total = gold + silver + bronze;
-
-              return `
-                <div class="zone-row">
-                  <div class="team-name">
-                    ${escapeHtml(team)}
-                  </div>
-
-                  <div>${renderMedalCell(
-                    teamData,
-                    zone.id,
-                    "gold"
-                  )}</div>
-
-                  <div>${renderMedalCell(
-                    teamData,
-                    zone.id,
-                    "silver"
-                  )}</div>
-
-                  <div>${renderMedalCell(
-                    teamData,
-                    zone.id,
-                    "bronze"
-                  )}</div>
-
-                  <div class="zone-total">
-                    ${total}
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
-        </div>
-      `;
-    }
-
-    function renderCriteriaTable(data) {
-      return `
-        <div class="criteria-card">
-
-          <div class="criteria-title">
-            ${t("total")}
-          </div>
-
-          <div class="criteria-table">
-
-            <div class="criteria-header">
-              <div>${t("team")}</div>
-
-              ${criteria.map(criterion => {
-                const label =
-                  data.labels?.criteria?.[criterion.id] ||
-                  criterion.defaultName;
-
-                return `
-                  <div>
-                    ${escapeHtml(label)}
-                  </div>
-                `;
-              }).join("")}
-
-              <div>${t("total")}</div>
-            </div>
-
-            ${teams.map(team => {
-              const teamData = data.teams?.[team] || {};
-
-              let total = 0;
-
-              const values = criteria.map(criterion => {
-                const value = Number(
-                  getValue(
-                    teamData,
-                    `criteria.${criterion.id}`,
-                    0
-                  )
-                );
-
-                total += value;
-
-                return value;
-              });
-
-              return `
-                <div class="criteria-row">
-
-                  <div class="team-name">
-                    ${escapeHtml(team)}
-                  </div>
-
-                  ${values.map(value => `
-                    <div class="criteria-value">
-                      ${value}
-                    </div>
-                  `).join("")}
-
-                  <div class="criteria-total">
-                    ${total}
-                  </div>
-
-                </div>
-              `;
-            }).join("")}
-
-          </div>
-        </div>
-      `;
-    }
-
-    function renderRanking(data) {
-      const rankings = getTeamRankings(data);
-
-      return `
-        <div class="ranking-card">
-
-          <div class="ranking-title">
-            🏆 ${t("total")}
-          </div>
-
-          <div class="ranking-list">
-
-            ${rankings.map((item, index) => `
-              <div class="ranking-item">
-
-                <div class="ranking-position">
-                  ${index + 1}
-                </div>
-
-                <div class="ranking-team">
-                  ${t("team")} ${escapeHtml(item.team)}
-                </div>
-
-                <div class="ranking-score">
-                  ${item.total}
-                </div>
-
-              </div>
-            `).join("")}
-
-          </div>
-
-        </div>
-      `;
-    }
-
-    function renderTeamOfWeek(data) {
-      const team =
-        data.teamOfWeek?.team ||
-        data.teamOfWeek?.winner ||
-        "";
-
-      const reward =
-        data.teamOfWeek?.reward ||
-        "";
-
-      if (!team) {
-        return `
-          <div class="team-week-card">
-
-            <div class="team-week-title">
-              🏆 ${t("teamOfWeek")}
-            </div>
-
-            <div class="team-week-empty">
-              ${t("noData")}
-            </div>
-
-          </div>
-        `;
+      if (data.updatedAt) {
+        const d = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+        document.getElementById("updated").textContent = t.updated + d.toLocaleTimeString(lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : "en-GB", { hour: "2-digit", minute: "2-digit" });
       }
-
-      return `
-        <div class="team-week-card">
-
-          <div class="team-week-title">
-            🏆 ${t("teamOfWeek")}
-          </div>
-
-          <div class="team-week-winner">
-            ${t("team")} ${escapeHtml(team)}
-          </div>
-
-          ${
-            reward
-              ? `
-                <div class="team-week-reward">
-                  <strong>${t("reward")}:</strong>
-                  ${escapeHtml(reward)}
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-      `;
     }
 
-    function formatDate(dateValue) {
-      if (!dateValue) return "";
+    renderStatic();
 
-      if (
-        typeof dateValue === "object" &&
-        dateValue.seconds
-      ) {
-        return new Date(
-          dateValue.seconds * 1000
-        ).toLocaleDateString();
-      }
+    const app = initializeApp(firebaseConfig);
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+    });
+    const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
 
-      const date = new Date(dateValue);
-
-      if (Number.isNaN(date.getTime())) {
-        return String(dateValue);
-      }
-
-      return date.toLocaleDateString();
-    }
-
-    function renderWeek(data) {
-      const number =
-        data.week?.number ||
-        data.week?.weekNumber ||
-        "";
-
-      const start =
-        data.week?.startDate ||
-        "";
-
-      const end =
-        data.week?.endDate ||
-        "";
-
-      let html = "";
-
-      if (number) {
-        html += `
-          <span class="week-number">
-            ${t("week")} ${escapeHtml(number)}
-          </span>
-        `;
-      }
-
-      if (start || end) {
-        html += `
-          <span class="week-dates">
-            ${
-              start
-                ? `${t("monday")}: ${escapeHtml(formatDate(start))}`
-                : ""
-            }
-
-            ${
-              start && end
-                ? " — "
-                : ""
-            }
-
-            ${
-              end
-                ? `${t("sunday")}: ${escapeHtml(formatDate(end))}`
-                : ""
-            }
-          </span>
-        `;
-      }
-
-      return html;
-    }
-
-    function render(data) {
-      currentData = normalizeData(data);
-
-      const appElement =
-        document.getElementById("app");
-
-      appElement.innerHTML = `
-        <header class="top-header">
-
-          <div class="header-content">
-
-            <div>
-              <h1>
-                ${escapeHtml(
-                  currentData.labels?.title ||
-                  t("title")
-                )}
-              </h1>
-
-              <p>
-                ${escapeHtml(
-                  currentData.labels?.subtitle ||
-                  t("subtitle")
-                )}
-              </p>
-            </div>
-
-            <div class="language-switcher">
-
-              <button
-                class="${currentLanguage === "fr" ? "active" : ""}"
-                data-lang="fr">
-                FR
-              </button>
-
-              <button
-                class="${currentLanguage === "en" ? "active" : ""}"
-                data-lang="en">
-                EN
-              </button>
-
-              <button
-                class="${currentLanguage === "es" ? "active" : ""}"
-                data-lang="es">
-                ES
-              </button>
-
-            </div>
-
-          </div>
-
-        </header>
-
-        <main class="main-container">
-
-          <section class="week-section">
-
-            <div class="week-info">
-              ${renderWeek(currentData)}
-            </div>
-
-          </section>
-
-          <section class="ranking-section">
-            ${renderRanking(currentData)}
-          </section>
-
-          <section class="zones-section">
-
-            ${zones.map(zone =>
-              renderZoneCard(zone, currentData)
-            ).join("")}
-
-          </section>
-
-          <section class="criteria-section">
-            ${renderCriteriaTable(currentData)}
-          </section>
-
-          <section class="team-week-section">
-            ${renderTeamOfWeek(currentData)}
-          </section>
-
-          <footer class="footer">
-
-            <span>
-              ${t("lastUpdate")}
-            </span>
-
-            <span id="last-update-value">
-              ${new Date().toLocaleString()}
-            </span>
-
-          </footer>
-
-        </main>
-      `;
-
-      document
-        .querySelectorAll("[data-lang]")
-        .forEach(button => {
-
-          button.addEventListener("click", () => {
-
-            currentLanguage =
-              button.dataset.lang;
-
-            render(currentData);
-
-          });
-
-        });
-    }
-
-    function showLoading() {
-      document.getElementById("app").innerHTML = `
-        <div class="loading-screen">
-          <div class="loading-spinner"></div>
-          <div>${t("loading")}</div>
-        </div>
-      `;
-    }
-
-    function showError(error) {
-      console.error(error);
-
-      document.getElementById("app").innerHTML = `
-        <div class="error-screen">
-
-          <h2>⚠️</h2>
-
-          <p>
-            ${t("noData")}
-          </p>
-
-          <small>
-            ${escapeHtml(error?.message || "")}
-          </small>
-
-        </div>
-      `;
-    }
-
-    showLoading();
-
-    onSnapshot(
-      leaderboardRef,
-      snapshot => {
-
-        if (snapshot.exists()) {
-          render(snapshot.data());
-        } else {
-          render({});
-        }
-
-      },
-      error => {
-        showError(error);
-      }
-    );
+    onSnapshot(ref, (snap) => {
+      renderData(snap.exists() ? snap.data() : {});
+    }, (err) => {
+      document.getElementById("updated").textContent = "Erreur / Error / Error";
+      console.error(err);
+    });
   </script>
-</head>
-
-<body>
-
-  <div id="app"></div>
-
 </body>
 </html>
