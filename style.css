@@ -3,9 +3,7 @@
    Design language: matches the client's original Excel template
    Dark green headers, light grey cells, gold medal icons.
    ============================================================ */
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
 :root {
   --green: #2E7A54;
   --green-dark: #245F42;
@@ -19,9 +17,7 @@
   --radius: 10px;
   --shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
-
 * { box-sizing: border-box; }
-
 html, body {
   margin: 0;
   padding: 0;
@@ -30,13 +26,11 @@ html, body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
 }
-
 .wrap {
   max-width: 1180px;
   margin: 0 auto;
   padding: 16px 12px 50px;
 }
-
 /* ---------- top bar: language switch + live status ---------- */
 .topbar {
   display: flex;
@@ -45,7 +39,6 @@ html, body {
   gap: 10px;
   margin-bottom: 14px;
 }
-
 .status-line {
   font-size: 12px;
   color: var(--text-dim);
@@ -63,7 +56,6 @@ html, body {
   70% { box-shadow: 0 0 0 7px rgba(46,122,84,0); }
   100% { box-shadow: 0 0 0 0 rgba(46,122,84,0); }
 }
-
 /* language settings gear */
 .lang-switch { position: relative; }
 .gear-btn {
@@ -104,7 +96,6 @@ html, body {
 .lang-menu button:last-child { border-bottom: none; }
 .lang-menu button:hover { background: var(--grey-cell); }
 .lang-menu button.active { color: var(--green); font-weight: 700; }
-
 /* ---------- save bar (admin) ---------- */
 .save-bar {
   display: flex;
@@ -123,7 +114,6 @@ html, body {
 .save-status.saved { color: var(--green); }
 .save-status.unsaved { color: #C9862B; animation: blink 1.4s infinite; }
 @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.5;} }
-
 .btn {
   border: none;
   border-radius: 7px;
@@ -139,7 +129,6 @@ html, body {
 .btn:hover { background: var(--green-dark); }
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-
 /* ---------- medal table ---------- */
 .medal-wrap {
   overflow-x: auto;
@@ -148,39 +137,33 @@ html, body {
   box-shadow: var(--shadow);
   border: 1px solid var(--border-cell);
 }
-
 table.medal-table {
   border-collapse: collapse;
   width: 100%;
   min-width: 980px;
   background: #fff;
 }
-
 .medal-table th, .medal-table td {
   border: 1px solid var(--border);
   padding: 6px 4px;
   text-align: center;
   vertical-align: middle;
 }
-
 .medal-table thead th {
   background: var(--green);
   color: #fff;
   font-size: 12px;
 }
-
 .medal-table thead tr.zone-row th {
   font-weight: 700;
   font-size: 13px;
   padding: 9px 4px;
 }
-
 .medal-table thead tr.team-row th {
   font-weight: 600;
   font-size: 12px;
   min-width: 68px;
 }
-
 .week-cell {
   text-align: left !important;
   font-size: 12px;
@@ -199,7 +182,6 @@ table.medal-table {
   padding: 1px 2px;
 }
 .week-cell input::placeholder { color: rgba(255,255,255,0.7); }
-
 .crit-cell {
   text-align: left !important;
   background: #fff;
@@ -208,10 +190,8 @@ table.medal-table {
 }
 .crit-title { color: var(--green); font-weight: 700; font-size: 13px; display: block; }
 .crit-sub { color: var(--text-dim); font-size: 11px; display: block; margin-top: 2px; }
-
 .medal-table tbody tr:nth-child(odd) td.data-cell { background: var(--grey-cell); }
 .medal-table tbody tr:nth-child(even) td.data-cell { background: var(--grey-cell-alt); }
-
 td.data-cell {
   font-size: 13px;
   height: auto;
@@ -220,7 +200,6 @@ td.data-cell {
   position: relative;
 }
 td.data-cell.editable { cursor: default; user-select: none; }
-
 .medal-cell-inner {
   display: flex;
   align-items: center;
@@ -245,7 +224,6 @@ td.data-cell.editable { cursor: default; user-select: none; }
 .mstep.plus { color: var(--green-dark); }
 .mstep.minus { color: #B23A3A; }
 .mstep:disabled { opacity: 0.3; cursor: not-allowed; }
-
 .cell-clear {
   position: absolute;
   top: 0;
@@ -259,7 +237,6 @@ td.data-cell.editable { cursor: default; user-select: none; }
   line-height: 1;
 }
 .cell-clear:hover { color: #B23A3A; }
-
 .medal-icons {
   display: flex;
   align-items: center;
@@ -274,7 +251,6 @@ td.data-cell.editable { cursor: default; user-select: none; }
   font-weight: 700;
   color: var(--text);
 }
-
 /* ---------- inline editable names (admin only) ---------- */
 .name-edit-inline {
   background: transparent;
@@ -291,7 +267,6 @@ td.data-cell.editable { cursor: default; user-select: none; }
 .name-edit-inline::placeholder { color: rgba(255,255,255,0.7); }
 .name-edit-inline.small { font-size: 11px; font-weight: 600; }
 .name-edit-inline:focus { outline: none; border-bottom-color: #fff; }
-
 .crit-cell input.crit-title-input {
   background: transparent; border: none; border-bottom: 1px dashed var(--border-cell);
   color: var(--green); font-weight: 700; font-size: 13px; width: 100%; padding: 2px 0; margin-bottom: 3px;
@@ -302,17 +277,14 @@ td.data-cell.editable { cursor: default; user-select: none; }
   color: var(--text-dim); font-size: 11px; width: 100%; padding: 1px 0; font-family: inherit;
 }
 .crit-cell input:focus { outline: none; border-bottom-color: var(--green); }
-
 .btn.danger { background: #B23A3A; }
 .btn.danger:hover { background: #8F2E2E; }
-
 tr.total-row th, tr.total-row td {
   background: var(--green-dark) !important;
   color: #fff;
   font-weight: 700;
   font-size: 13px;
 }
-
 /* ---------- team of the week ---------- */
 .tow-panel {
   margin-top: 16px;
@@ -349,7 +321,6 @@ tr.total-row th, tr.total-row td {
   min-width: 80px;
 }
 .tow-field .static-value { font-weight: 600; }
-
 /* ---------- legend / footer ---------- */
 .legend-text {
   margin-top: 12px;
@@ -358,7 +329,6 @@ tr.total-row th, tr.total-row td {
   font-style: italic;
   text-align: center;
 }
-
 /* ---------- gate (wrong / missing admin key) ---------- */
 .gate {
   background: #fff;
@@ -370,8 +340,60 @@ tr.total-row th, tr.total-row td {
 }
 .gate .big { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 22px; color: #C0392B; display: block; margin-bottom: 8px; }
 .gate p { color: var(--text-dim); font-size: 14px; }
-
 @media (max-width: 480px) {
   .wrap { padding: 12px 8px 40px; }
   .medal-table thead tr.team-row th { min-width: 58px; font-size: 11px; }
+}
+
+/* ---------- admin login / logout (auth) ---------- */
+.login-gate .big { color: var(--green-dark); }
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 320px;
+  margin: 18px auto 0;
+  text-align: left;
+}
+.login-form .tow-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.login-form .tow-field input {
+  border: 1px solid var(--border-cell);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fff;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+.login-form .tow-field input:focus {
+  outline: none;
+  border-color: var(--green);
+}
+.login-error {
+  color: #C0392B;
+  font-size: 13px;
+  min-height: 1.2em;
+  margin: 0;
+}
+.login-form .btn {
+  width: 100%;
+  margin-top: 4px;
+}
+.gate .btn.secondary {
+  margin-top: 12px;
+}
+.btn.secondary {
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border-cell);
+}
+.btn.secondary:hover {
+  background: var(--grey-cell);
+  color: var(--text);
 }
