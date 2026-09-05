@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 <title>Admin — Tableau des Médailles</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -19,25 +20,39 @@
         </div>
       </div>
     </div>
-
-    <div id="gate" class="gate" style="display:none;">
-      <span class="big">🔒 Accès refusé / Access denied</span>
-      <p>Ce lien doit contenir la clé admin (?key=...).</p>
+    <div id="loginScreen" class="gate login-gate" style="display:none;">
+      <span class="big" data-i18n="loginTitle">🔒 Connexion admin</span>
+      <p data-i18n="loginHint">Connectez-vous avec le compte administrateur.</p>
+      <form id="loginForm" class="login-form">
+        <div class="tow-field">
+          <label for="loginEmail" data-i18n="email">Email</label>
+          <input type="email" id="loginEmail" name="email" required autocomplete="username" />
+        </div>
+        <div class="tow-field">
+          <label for="loginPassword" data-i18n="password">Mot de passe</label>
+          <input type="password" id="loginPassword" name="password" required autocomplete="current-password" />
+        </div>
+        <p id="loginError" class="login-error" role="alert"></p>
+        <button type="submit" class="btn" id="loginBtn"><span data-i18n="login">Connexion</span></button>
+      </form>
     </div>
-
+    <div id="gate" class="gate" style="display:none;">
+      <span class="big" data-i18n="deniedTitle">🔒 Accès refusé / Access denied</span>
+      <p data-i18n="deniedMsg">Ce compte n'est pas autorisé à modifier le tableau.</p>
+      <button type="button" class="btn secondary" id="deniedBackBtn" data-i18n="deniedBack">Retour à la connexion</button>
+    </div>
     <div id="app" style="display:none;">
       <div class="save-bar">
         <span id="saveStatus" class="save-status saved">✅ Enregistré</span>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="logoutBtn" class="btn secondary">⎋ <span data-i18n="logout"></span></button>
           <button id="clearAllBtn" class="btn danger">🗑 <span data-i18n="clearAll"></span></button>
           <button id="saveBtn" class="btn" disabled>💾 <span data-i18n="save"></span></button>
         </div>
       </div>
-
       <div class="medal-wrap">
         <table class="medal-table" id="medalTable"></table>
       </div>
-
       <div class="tow-panel">
         <div class="tow-head" data-i18n="equipeSemaine"></div>
         <div class="tow-body">
@@ -59,44 +74,37 @@
           </div>
         </div>
       </div>
-
       <div class="legend-text" id="legendText"></div>
     </div>
   </div>
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
     import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, onSnapshot, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-    import { firebaseConfig, DOC_PATH, ADMIN_KEY } from "./firebase-config.js";
+    import { firebaseConfig, DOC_PATH } from "./firebase-config.js";
 
-    // --- gate check ---
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("key") !== ADMIN_KEY) {
-      document.getElementById("gate").style.display = "block";
-      throw new Error("Unauthorized");
-    }
-    document.getElementById("app").style.display = "block";
+    const ADMIN_UID = "uVB0PRSsoshLE4lPt8sxXEIbhJH3";
 
-    // Escape any free-typed text before it's interpolated into an HTML string
-    // (custom zone/team/criteria names) — prevents HTML/markup injection.
     function escapeHtml(str) {
-      return String(str ?? "").replace(/[&<>"']/g, (ch) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[ch]));
+      return String(str ?? "").replace(/[&<>"']/g, (ch) => {
+        if (ch === "&") return "\u0026amp;";
+        if (ch === "<") return "\u0026lt;";
+        if (ch === ">") return "\u0026gt;";
+        if (ch === '"') return "\u0026quot;";
+        return "\u0026#39;";
+      });
     }
-
     // ---------- fixed structure ----------
     const ZONES = ["VARIABLE", "BMB", "ENGEL"];
     const TEAM_IDS = ["A", "B", "C", "D"];
     const CRITERIA = ["trs", "valid", "presence", "org"];
-
     const T = {
       fr: {
         semaine: "SEMAINE", du: "DU", au: "AU", criteres: "CRITÈRES",
         equipe: "Équipe", totalMedailles: "TOTAL MÉDAILLES",
         equipeSemaine: "ÉQUIPE DE LA SEMAINE", zone: "Zone :", recompense: "Récompense :",
         total: "Total :", medaillesWord: "médailles", save: "Enregistrer et envoyer",
-        clearAll: "Tout effacer",
+        clearAll: "Tout effacer", logout: "Déconnexion",
         savedMsg: "✅ Enregistré", unsavedMsg: "⚠️ Modifications non enregistrées", syncingMsg: "🔄 Synchronisation...",
         crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Plus de 75 % = 1 médaille",
         crit_valid_t: "Validations machines", crit_valid_s: "Validation réussie = 1 médaille",
@@ -104,14 +112,25 @@
         crit_org_t: "5S & Organisation", crit_org_s: "Zone conforme + 0 fiche AC = 1 médaille",
         legend: "Cliquez + / − pour ajouter ou retirer une médaille. Le petit × efface une case. Le total se calcule automatiquement.",
         weekNumPh: "N°", updated: "Dernier enregistrement : ",
-        confirmClearAll: "Effacer TOUTES les médailles de toutes les équipes ? Cette action ne peut être annulée qu'en resauvegardant."
+        confirmClearAll: "Effacer TOUTES les médailles de toutes les équipes ? Cette action ne peut être annulée qu'en resauvegardant.",
+        loginTitle: "🔒 Connexion admin",
+        loginHint: "Connectez-vous avec le compte administrateur.",
+        email: "Email", password: "Mot de passe", login: "Connexion",
+        deniedTitle: "🔒 Accès refusé",
+        deniedMsg: "Ce compte n'est pas autorisé à modifier le tableau.",
+        deniedBack: "Retour à la connexion",
+        errEmail: "Adresse email invalide.",
+        errCreds: "Email ou mot de passe incorrect.",
+        errMany: "Trop de tentatives. Réessayez plus tard.",
+        errNetwork: "Erreur réseau. Vérifiez votre connexion.",
+        errGeneric: "La connexion a échoué."
       },
       en: {
         semaine: "WEEK", du: "FROM", au: "TO", criteres: "CRITERIA",
         equipe: "Team", totalMedailles: "TOTAL MEDALS",
         equipeSemaine: "TEAM OF THE WEEK", zone: "Zone:", recompense: "Reward:",
         total: "Total:", medaillesWord: "medals", save: "Save and send",
-        clearAll: "Clear all",
+        clearAll: "Clear all", logout: "Log out",
         savedMsg: "✅ Saved", unsavedMsg: "⚠️ Unsaved changes", syncingMsg: "🔄 Syncing...",
         crit_trs_t: "OEE ≥ 75 %", crit_trs_s: "Over 75 % = 1 medal",
         crit_valid_t: "Machine validations", crit_valid_s: "Successful validation = 1 medal",
@@ -119,14 +138,25 @@
         crit_org_t: "5S & Organization", crit_org_s: "Compliant area + 0 non-conformity = 1 medal",
         legend: "Tap + / − to add or remove a medal. The small × clears a cell. The total is calculated automatically.",
         weekNumPh: "No.", updated: "Last saved: ",
-        confirmClearAll: "Clear ALL medals for every team? This can only be undone by not saving."
+        confirmClearAll: "Clear ALL medals for every team? This can only be undone by not saving.",
+        loginTitle: "🔒 Admin login",
+        loginHint: "Sign in with the administrator account.",
+        email: "Email", password: "Password", login: "Log in",
+        deniedTitle: "🔒 Access denied",
+        deniedMsg: "This account is not allowed to edit the scoreboard.",
+        deniedBack: "Back to login",
+        errEmail: "Invalid email address.",
+        errCreds: "Incorrect email or password.",
+        errMany: "Too many attempts. Try again later.",
+        errNetwork: "Network error. Check your connection.",
+        errGeneric: "Sign-in failed."
       },
       es: {
         semaine: "SEMANA", du: "DEL", au: "AL", criteres: "CRITERIOS",
         equipe: "Equipo", totalMedailles: "TOTAL MEDALLAS",
         equipeSemaine: "EQUIPO DE LA SEMANA", zone: "Zona:", recompense: "Recompensa:",
         total: "Total:", medaillesWord: "medallas", save: "Guardar y enviar",
-        clearAll: "Borrar todo",
+        clearAll: "Borrar todo", logout: "Cerrar sesión",
         savedMsg: "✅ Guardado", unsavedMsg: "⚠️ Cambios sin guardar", syncingMsg: "🔄 Sincronizando...",
         crit_trs_t: "TRS ≥ 75 %", crit_trs_s: "Más de 75 % = 1 medalla",
         crit_valid_t: "Validaciones de máquina", crit_valid_s: "Validación exitosa = 1 medalla",
@@ -134,10 +164,20 @@
         crit_org_t: "5S y Organización", crit_org_s: "Zona conforme + 0 ficha AC = 1 medalla",
         legend: "Toque + / − para añadir o quitar una medalla. El × pequeño borra una casilla. El total se calcula automáticamente.",
         weekNumPh: "N.º", updated: "Último guardado: ",
-        confirmClearAll: "¿Borrar TODAS las medallas de todos los equipos? Solo se puede deshacer si no guarda."
+        confirmClearAll: "¿Borrar TODAS las medallas de todos los equipos? Solo se puede deshacer si no guarda.",
+        loginTitle: "🔒 Acceso admin",
+        loginHint: "Inicie sesión con la cuenta de administrador.",
+        email: "Email", password: "Contraseña", login: "Iniciar sesión",
+        deniedTitle: "🔒 Acceso denegado",
+        deniedMsg: "Esta cuenta no está autorizada a modificar el tablero.",
+        deniedBack: "Volver al inicio de sesión",
+        errEmail: "Dirección de email no válida.",
+        errCreds: "Email o contraseña incorrectos.",
+        errMany: "Demasiados intentos. Pruebe más tarde.",
+        errNetwork: "Error de red. Compruebe su conexión.",
+        errGeneric: "No se pudo iniciar sesión."
       }
     };
-
     let lang = localStorage.getItem("lang") || "fr";
     let workingDoc = {
       week: { number: "", from: "", to: "" },
@@ -146,7 +186,8 @@
       customLabels: { zones: {}, teams: {}, criteria: {} }
     };
     let dirty = false;
-
+    let holdUnauthorized = false;
+    let unsubSnapshot = null;
     const gearBtn = document.getElementById("gearBtn");
     const langMenu = document.getElementById("langMenu");
     gearBtn.addEventListener("click", () => langMenu.classList.toggle("open"));
@@ -166,13 +207,24 @@
     function applyLangHighlight() {
       langMenu.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
     }
-
+    function applyI18n() {
+      const t = T[lang];
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (t[key] !== undefined) el.textContent = t[key];
+      });
+      const legend = document.getElementById("legendText");
+      if (legend) legend.textContent = t.legend;
+      applyLangHighlight();
+    }
     function medalIcons(count) {
       if (!count) return "";
       if (count <= 3) return "🏅".repeat(count);
       return `<span class="medal-count-badge">🏅×${count}</span>`;
     }
-
+    function isAdminUser(user) {
+      return Boolean(user && user.uid === ADMIN_UID);
+    }
     function setDirty(state) {
       dirty = state;
       const saveBtn = document.getElementById("saveBtn");
@@ -182,13 +234,35 @@
       saveStatus.textContent = state ? t.unsavedMsg : t.savedMsg;
       saveStatus.className = "save-status " + (state ? "unsaved" : "saved");
     }
-
+    function showLogin() {
+      document.getElementById("loginScreen").style.display = "block";
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("app").style.display = "none";
+      applyI18n();
+    }
+    function showUnauthorized() {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("gate").style.display = "block";
+      document.getElementById("app").style.display = "none";
+      applyI18n();
+    }
+    function showDashboard() {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("gate").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      applyI18n();
+    }
+    function stopLiveUpdates() {
+      if (unsubSnapshot) {
+        unsubSnapshot();
+        unsubSnapshot = null;
+      }
+    }
     // ---------- build the static table skeleton + interactive cells ----------
     function renderStatic() {
       const t = T[lang];
       const table = document.getElementById("medalTable");
       const cl = workingDoc.customLabels || { zones: {}, teams: {}, criteria: {} };
-
       let thead = `<thead>
         <tr class="zone-row">
           <th class="week-cell">
@@ -208,7 +282,6 @@
           }).join("")).join("")}
         </tr>
       </thead>`;
-
       let tbody = "<tbody>";
       CRITERIA.forEach(critId => {
         const custTitle = cl.criteria?.[critId]?.title || "";
@@ -235,14 +308,11 @@
         <th>${t.totalMedailles}</th>
         ${ZONES.map(zone => TEAM_IDS.map(team => `<td data-total="${zone}_${team}">0</td>`).join("")).join("")}
       </tr></tbody>`;
-
       table.innerHTML = thead + tbody;
-
       // medal +/-/clear buttons
       table.querySelectorAll("[data-plus]").forEach(b => b.addEventListener("click", () => bumpMedal(b.dataset.plus, 1)));
       table.querySelectorAll("[data-minus]").forEach(b => b.addEventListener("click", () => bumpMedal(b.dataset.minus, -1)));
       table.querySelectorAll("[data-clear]").forEach(b => b.addEventListener("click", () => clearCell(b.dataset.clear)));
-
       // custom name inputs — update workingDoc silently, no re-render (keeps focus)
       table.querySelectorAll("[data-zonekey]").forEach(inp => inp.addEventListener("input", () => {
         workingDoc.customLabels.zones[inp.dataset.zonekey] = inp.value;
@@ -261,25 +331,16 @@
         workingDoc.customLabels.criteria[inp.dataset.critsub] = { ...(workingDoc.customLabels.criteria[inp.dataset.critsub] || {}), sub: inp.value };
         setDirty(true);
       }));
-
       // week fields
       document.getElementById("weekNum").addEventListener("input", (e) => { workingDoc.week.number = e.target.value; setDirty(true); });
       document.getElementById("weekFrom").addEventListener("input", (e) => { workingDoc.week.from = e.target.value; setDirty(true); });
       document.getElementById("weekTo").addEventListener("input", (e) => { workingDoc.week.to = e.target.value; setDirty(true); });
-
       refreshTeamOfWeekOptions();
       document.getElementById("towZone").addEventListener("change", (e) => { workingDoc.teamOfWeek.zone = e.target.value; setDirty(true); syncTowTotalIfSelected(); });
       document.getElementById("towEquipe").addEventListener("change", (e) => { workingDoc.teamOfWeek.team = e.target.value; setDirty(true); syncTowTotalIfSelected(); });
       document.getElementById("towReward").addEventListener("input", (e) => { workingDoc.teamOfWeek.reward = e.target.value; setDirty(true); });
-
-      document.getElementById("legendText").textContent = t.legend;
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (t[key] !== undefined) el.textContent = t[key];
-      });
-      applyLangHighlight();
+      applyI18n();
     }
-
     function refreshTeamOfWeekOptions() {
       const t = T[lang];
       const cl = workingDoc.customLabels || {};
@@ -293,9 +354,9 @@
       }).join("");
       zoneSel.value = prevZone; equipeSel.value = prevTeam;
     }
-
     // ---------- medal math ----------
     function bumpMedal(key, delta) {
+      if (!isAdminUser(auth.currentUser)) return;
       const current = workingDoc.medals[key] || 0;
       workingDoc.medals[key] = Math.max(0, current + delta);
       setDirty(true);
@@ -304,8 +365,8 @@
       updateTotalFor(zone, team);
       syncTowTotalIfSelected();
     }
-
     function clearCell(key) {
+      if (!isAdminUser(auth.currentUser)) return;
       workingDoc.medals[key] = 0;
       setDirty(true);
       updateCell(key);
@@ -313,7 +374,6 @@
       updateTotalFor(zone, team);
       syncTowTotalIfSelected();
     }
-
     function updateCell(key) {
       const iconsEl = document.querySelector(`[data-icons="${key}"]`);
       const count = workingDoc.medals[key] || 0;
@@ -321,14 +381,12 @@
       const minusBtn = document.querySelector(`[data-minus="${key}"]`);
       if (minusBtn) minusBtn.disabled = count === 0;
     }
-
     function updateTotalFor(zone, team) {
       let total = 0;
       CRITERIA.forEach(c => total += (workingDoc.medals[`${zone}_${team}_${c}`] || 0));
       const cell = document.querySelector(`[data-total="${zone}_${team}"]`);
       if (cell) cell.textContent = total;
     }
-
     function syncTowTotalIfSelected() {
       const t = T[lang];
       const { zone, team } = workingDoc.teamOfWeek;
@@ -340,18 +398,17 @@
         document.getElementById("towTotal").textContent = "—";
       }
     }
-
     function fillFromWorkingDoc() {
+      const weekNum = document.getElementById("weekNum");
+      if (!weekNum) return;
       const w = workingDoc.week || {};
-      document.getElementById("weekNum").value = w.number || "";
+      weekNum.value = w.number || "";
       document.getElementById("weekFrom").value = w.from || "";
       document.getElementById("weekTo").value = w.to || "";
-
       ZONES.forEach(zone => TEAM_IDS.forEach(team => {
         CRITERIA.forEach(critId => updateCell(`${zone}_${team}_${critId}`));
         updateTotalFor(zone, team);
       }));
-
       const tow = workingDoc.teamOfWeek || {};
       document.getElementById("towZone").value = tow.zone || "";
       refreshTeamOfWeekOptions();
@@ -360,16 +417,50 @@
       document.getElementById("towReward").value = tow.reward || "";
       syncTowTotalIfSelected();
     }
+    function authErrorMessage(code) {
+      const t = T[lang];
+      if (code === "auth/invalid-email") return t.errEmail;
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found" || code === "auth/user-disabled") return t.errCreds;
+      if (code === "auth/too-many-requests") return t.errMany;
+      if (code === "auth/network-request-failed") return t.errNetwork;
+      return t.errGeneric;
+    }
 
     renderStatic();
-
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
     });
     const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
 
+    function startLiveUpdates() {
+      if (unsubSnapshot) return;
+      unsubSnapshot = onSnapshot(ref, (snap) => {
+        if (!isAdminUser(auth.currentUser)) return;
+        const data = snap.exists() ? snap.data() : {};
+        if (!dirty) {
+          workingDoc = {
+            week: data.week || { number: "", from: "", to: "" },
+            medals: data.medals || {},
+            teamOfWeek: data.teamOfWeek || { zone: "", team: "", reward: "" },
+            customLabels: data.customLabels || { zones: {}, teams: {}, criteria: {} }
+          };
+          renderStatic();
+          fillFromWorkingDoc();
+        }
+        if (data.updatedAt) {
+          const d = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+          document.getElementById("updated").textContent = T[lang].updated + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        }
+      }, (err) => {
+        document.getElementById("updated").textContent = "Erreur de connexion";
+        console.error(err);
+      });
+    }
+
     document.getElementById("clearAllBtn").addEventListener("click", () => {
+      if (!isAdminUser(auth.currentUser)) return;
       const t = T[lang];
       if (!confirm(t.confirmClearAll)) return;
       workingDoc.medals = {};
@@ -380,38 +471,65 @@
       }));
       syncTowTotalIfSelected();
     });
-
     document.getElementById("saveBtn").addEventListener("click", () => {
+      if (!isAdminUser(auth.currentUser)) return;
       const t = T[lang];
       const payload = { ...workingDoc, updatedAt: serverTimestamp() };
       setDirty(false);
       document.getElementById("saveStatus").textContent = t.syncingMsg;
       document.getElementById("saveStatus").className = "save-status unsaved";
-
       setDoc(ref, payload)
         .then(() => { if (!dirty) { document.getElementById("saveStatus").textContent = t.savedMsg; document.getElementById("saveStatus").className = "save-status saved"; } })
         .catch((err) => { console.error(err); alert("Error saving"); setDirty(true); });
     });
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      holdUnauthorized = false;
+      stopLiveUpdates();
+      signOut(auth).catch((err) => console.error(err));
+    });
+    document.getElementById("deniedBackBtn").addEventListener("click", () => {
+      holdUnauthorized = false;
+      document.getElementById("loginError").textContent = "";
+      showLogin();
+    });
+    document.getElementById("loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      const errEl = document.getElementById("loginError");
+      const loginBtn = document.getElementById("loginBtn");
+      errEl.textContent = "";
+      loginBtn.disabled = true;
+      holdUnauthorized = false;
+      signInWithEmailAndPassword(auth, email, password)
+        .catch((err) => {
+          errEl.textContent = authErrorMessage(err && err.code);
+        })
+        .finally(() => {
+          loginBtn.disabled = false;
+        });
+    });
 
-    onSnapshot(ref, (snap) => {
-      const data = snap.exists() ? snap.data() : {};
-      if (!dirty) {
-        workingDoc = {
-          week: data.week || { number: "", from: "", to: "" },
-          medals: data.medals || {},
-          teamOfWeek: data.teamOfWeek || { zone: "", team: "", reward: "" },
-          customLabels: data.customLabels || { zones: {}, teams: {}, criteria: {} }
-        };
-        renderStatic();
-        fillFromWorkingDoc();
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        stopLiveUpdates();
+        if (holdUnauthorized) {
+          showUnauthorized();
+          return;
+        }
+        showLogin();
+        return;
       }
-      if (data.updatedAt) {
-        const d = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
-        document.getElementById("updated").textContent = T[lang].updated + d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+      if (!isAdminUser(user)) {
+        holdUnauthorized = true;
+        stopLiveUpdates();
+        showUnauthorized();
+        signOut(auth).catch(() => {});
+        return;
       }
-    }, (err) => {
-      document.getElementById("updated").textContent = "Erreur de connexion";
-      console.error(err);
+      holdUnauthorized = false;
+      showDashboard();
+      startLiveUpdates();
     });
   </script>
 </body>
