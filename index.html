@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 <title>Tableau des Médailles</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -19,11 +20,9 @@
         </div>
       </div>
     </div>
-
     <div class="medal-wrap">
       <table class="medal-table" id="medalTable"></table>
     </div>
-
     <div class="tow-panel">
       <div class="tow-head" data-i18n="equipeSemaine"></div>
       <div class="tow-body">
@@ -33,21 +32,17 @@
         <div class="tow-field"><label data-i18n="recompense"></label><span class="static-value" id="towReward">—</span></div>
       </div>
     </div>
-
     <div class="legend-text" id="legendText"></div>
   </div>
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
     import { firebaseConfig, DOC_PATH } from "./firebase-config.js";
-
     // ---------- fixed structure (matches the client's template) ----------
     const ZONES = ["VARIABLE", "BMB", "ENGEL"];
     const TEAM_IDS = ["A", "B", "C", "D"];
     const CRITERIA = ["trs", "valid", "presence", "org"];
     const MAX_MEDALS = 5;
-
     const T = {
       fr: {
         semaine: "SEMAINE", du: "DU", au: "AU", criteres: "CRITÈRES",
@@ -86,9 +81,7 @@
         updated: "Última actualización: "
       }
     };
-
     let lang = localStorage.getItem("lang") || "fr";
-
     const gearBtn = document.getElementById("gearBtn");
     const langMenu = document.getElementById("langMenu");
     gearBtn.addEventListener("click", () => langMenu.classList.toggle("open"));
@@ -108,18 +101,15 @@
     function applyLangHighlight() {
       langMenu.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
     }
-
     function medalIcons(count) {
       if (!count) return "";
       if (count <= 3) return "🏅".repeat(count);
       return `<span class="medal-count-badge">🏅×${count}</span>`;
     }
-
     // ---------- build the static table skeleton ----------
     function renderStatic() {
       const t = T[lang];
       const table = document.getElementById("medalTable");
-
       let thead = `<thead>
         <tr class="zone-row">
           <th class="week-cell" rowspan="1">
@@ -134,7 +124,6 @@
           ${ZONES.map(z => TEAM_IDS.map(id => `<th data-teamlabel="${z}_${id}">${t.equipe} ${id}</th>`).join("")).join("")}
         </tr>
       </thead>`;
-
       let tbody = "<tbody>";
       CRITERIA.forEach(critId => {
         tbody += `<tr>
@@ -152,9 +141,7 @@
         <th>${t.totalMedailles}</th>
         ${ZONES.map(zone => TEAM_IDS.map(team => `<td data-total="${zone}_${team}">0</td>`).join("")).join("")}
       </tr></tbody>`;
-
       table.innerHTML = thead + tbody;
-
       document.getElementById("legendText").textContent = t.legend;
       document.querySelectorAll("[data-i18n]").forEach(el => {
         const key = el.getAttribute("data-i18n");
@@ -162,7 +149,6 @@
       });
       applyLangHighlight();
     }
-
     // ---------- fill in live data ----------
     let lastDoc = null;
     function renderData(data) {
@@ -172,7 +158,6 @@
       document.getElementById("weekNum").textContent = week.number || "—";
       document.getElementById("weekFrom").textContent = week.from || "—";
       document.getElementById("weekTo").textContent = week.to || "—";
-
       // custom names override the translated defaults (textContent is XSS-safe either way)
       const cl = data.customLabels || {};
       ZONES.forEach(z => {
@@ -191,7 +176,6 @@
         if (titleEl) titleEl.textContent = (custom && custom.title) || t["crit_" + critId + "_t"];
         if (subEl) subEl.textContent = (custom && custom.sub) || t["crit_" + critId + "_s"];
       });
-
       const medals = data.medals || {};
       ZONES.forEach(zone => TEAM_IDS.forEach(team => {
         let total = 0;
@@ -205,7 +189,6 @@
         const totalCell = document.querySelector(`[data-total="${zone}_${team}"]`);
         if (totalCell) totalCell.textContent = total;
       }));
-
       const tow = data.teamOfWeek || {};
       const towTeamKey = tow.zone && tow.team ? `${tow.zone}_${tow.team}` : null;
       document.getElementById("towZone").textContent = tow.zone ? ((cl.zones && cl.zones[tow.zone]) || tow.zone) : "—";
@@ -218,21 +201,17 @@
           })()} ${t.medaillesWord}`
         : "—";
       document.getElementById("towReward").textContent = tow.reward || "—";
-
       if (data.updatedAt) {
         const d = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
         document.getElementById("updated").textContent = t.updated + d.toLocaleTimeString(lang === "fr" ? "fr-FR" : lang === "es" ? "es-ES" : "en-GB", { hour: "2-digit", minute: "2-digit" });
       }
     }
-
     renderStatic();
-
     const app = initializeApp(firebaseConfig);
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
     });
     const ref = doc(db, DOC_PATH.collection, DOC_PATH.doc);
-
     onSnapshot(ref, (snap) => {
       renderData(snap.exists() ? snap.data() : {});
     }, (err) => {
